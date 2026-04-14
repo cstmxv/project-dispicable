@@ -12,7 +12,7 @@ const client = new Client({
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = '1449775322580123648';
-const GUILD_ID = '1449765717942472868';
+const GUILD_ID = '';
 
 let startTime = Date.now();
 const warnings = new Map(); // In-memory storage for warnings
@@ -1057,12 +1057,6 @@ client.on('messageCreate', message => {
     if (message.channel.name === 'partners' && !message.author.bot) {
         message.delete();
     }
-});
-
-client.on('ready', async () => {
-    console.log(`✅ Logged in as ${client.user.tag}`);
-    client.user.setActivity('Probably spying on XV ', { type: ActivityType.Watching });
-    await registerCommands();
 });
 
 client.login(TOKEN);
