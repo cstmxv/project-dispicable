@@ -17,10 +17,6 @@ const GUILD_ID = '1449765717942472868';
 let startTime = Date.now();
 const warnings = new Map(); // In-memory storage for warnings
 const moderationLogs = []; // Store all moderation actions
-const userProfiles = new Map(); // User profiles with XP, level, stats
-const userCrews = new Map(); // Crew storage
-const dailyChallengeLog = new Map(); // Track daily challenge completion
-const achievements = new Map(); // User achievements
 const helpCommandUsed = new Set(); // Track which guilds have used help command
 const appeals = new Map(); // User appeals for bans
 const guildMemberCounts = new Map(); // Track member milestones
@@ -36,38 +32,7 @@ const bannedContent = [
   /b[o0]obs|ass|tits|c[o0]ck|pussy/gi
 ];
 
-// Default user profile structure
-function createUserProfile(userId) {
-  return {
-    userId: userId,
-    xp: 0,
-    level: 1,
-    wins: 0,
-    races: 0,
-    achievements: [],
-    crew: null,
-    favoriteTrack: null,
-    bio: 'Racing Nation Member',
-    joinedDate: new Date()
-  };
-}
 
-// Function to get or create user profile
-function getUserProfile(userId) {
-  if (!userProfiles.has(userId)) {
-    userProfiles.set(userId, createUserProfile(userId));
-  }
-  return userProfiles.get(userId);
-}
-
-// XP and leveling system
-function addXP(userId, amount) {
-  const profile = getUserProfile(userId);
-  profile.xp += amount;
-  const xpPerLevel = 1000;
-  profile.level = Math.floor(profile.xp / xpPerLevel) + 1;
-  return profile.level;
-}
 
 // Function to get bot-logs channel
 async function getBotLogsChannel(guild) {
@@ -295,57 +260,12 @@ const commands = [
     .addIntegerOption(option => option.setName('limit').setDescription('Number of logs to show (default 10)').setRequired(false)),
 
   new SlashCommandBuilder()
-    .setName('track')
-    .setDescription('Get information about a random racing track.'),
-
-  new SlashCommandBuilder()
-    .setName('profile')
-    .setDescription('View your racing profile.')
-    .addUserOption(option => option.setName('user').setDescription('User to view profile (default: yourself)').setRequired(false)),
-
-  new SlashCommandBuilder()
-    .setName('leaderboard')
-    .setDescription('View top racers by XP/level.'),
-
-  new SlashCommandBuilder()
-    .setName('crew')
-    .setDescription('Create or join a racing crew.')
-    .addStringOption(option => option.setName('action').setDescription('create or join').setRequired(true).addChoices({ name: 'create', value: 'create' }, { name: 'join', value: 'join' }))
-    .addStringOption(option => option.setName('crewname').setDescription('Crew name to create/join').setRequired(true)),
-
-  new SlashCommandBuilder()
-    .setName('crew-members')
-    .setDescription('List your crew members.'),
-
-  new SlashCommandBuilder()
-    .setName('achievements')
-    .setDescription('View your achievements and badges.')
-    .addUserOption(option => option.setName('user').setDescription('User to view achievements (default: yourself)').setRequired(false)),
-
-  new SlashCommandBuilder()
-    .setName('ranking')
-    .setDescription('View your rank and standing.'),
-
-  new SlashCommandBuilder()
-    .setName('favorite')
-    .setDescription('Set your favorite track.')
-    .addStringOption(option => option.setName('track').setDescription('Track name').setRequired(true)),
-
-  new SlashCommandBuilder()
-    .setName('dailychallenge')
-    .setDescription('Complete today\'s racing challenge.'),
-
-  new SlashCommandBuilder()
-    .setName('tournament')
-    .setDescription('View or create a racing tournament.'),
-
-  new SlashCommandBuilder()
     .setName('help')
     .setDescription('Display all available bot commands (one-time use per server).'),
 
   new SlashCommandBuilder()
     .setName('raidmode')
-    .setDescription('Toggle raid mode - locks all channels (Race Director only).')
+    .setDescription('Toggle raid mode - locks all channels (Match Officials only).')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   new SlashCommandBuilder()
@@ -363,13 +283,6 @@ const commands = [
   new SlashCommandBuilder()
     .setName('appeal')
     .setDescription('Appeal your ban (mods will review).'),
-
-  new SlashCommandBuilder()
-    .setName('time')
-    .setDescription('Submit your lap time.')
-    .addNumberOption(option => option.setName('laptime').setDescription('Your lap time in seconds').setRequired(true))
-    .addStringOption(option => option.setName('track').setDescription('Track name').setRequired(true))
-    .addStringOption(option => option.setName('game').setDescription('Game title').setRequired(true)),
 ];
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -461,12 +374,12 @@ client.on('interactionCreate', async interaction => {
   const member = interaction.member;
   const guild = interaction.guild;
 
-  // Check for Race Control role for moderation commands
+  // Check for Match Officials role for moderation commands
   const moderationCommands = ['kick', 'ban', 'mute', 'unmute', 'warn', 'warnings', 'purge', 'nick', 'roleadd', 'roleremove', 'lock', 'unlock', 'slowmode', 'announce', 'tempban', 'clearwarnings', 'unban', 'logs'];
   if (moderationCommands.includes(commandName)) {
-    const raceControlRole = guild.roles.cache.find(role => role.name === 'Race Control');
-    if (!raceControlRole || !member.roles.cache.has(raceControlRole.id)) {
-      return interaction.reply({ content: 'You do not have the Race Control role to use this command.', ephemeral: true });
+    const matchOfficialsRole = guild.roles.cache.find(role => role.name === 'Match Officials');
+    if (!matchOfficialsRole || !member.roles.cache.has(matchOfficialsRole.id)) {
+      return interaction.reply({ content: 'You do not have the Match Officials role to use this command.', ephemeral: true });
     }
     // Additional validation: ensure executor is not trying to action on higher roles
     if (['kick', 'ban', 'mute', 'unmute', 'tempban', 'unban'].includes(commandName)) {
@@ -974,249 +887,25 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ embeds: [logsEmbed], ephemeral: true });
         break;
 
-      case 'track':
-        const tracks = [
-          { name: 'Silverstone', country: 'United Kingdom', length: '5.891 km', lapRecord: '1:27.369', type: 'Circuit', famous: 'Historic F1 venue, high speed' },
-          { name: 'Monaco Grand Prix', country: 'Monaco', length: '3.337 km', lapRecord: '1:14.260', type: 'Street Circuit', famous: 'Most prestigious street race, iconic barriers' },
-          { name: 'Nürburgring', country: 'Germany', length: '20.832 km', lapRecord: '6:52.300', type: 'Road Course', famous: 'Longest and most challenging track' },
-          { name: 'Spa-Francorchamps', country: 'Belgium', length: '7.004 km', lapRecord: '1:46.286', type: 'High Speed', famous: 'Eau Rouge, extreme weather conditions' },
-          { name: 'Monza', country: 'Italy', length: '5.793 km', lapRecord: '1:21.046', type: 'High Speed', famous: 'Fastest track, Italian GP venue' },
-          { name: 'Suzuka', country: 'Japan', length: '5.807 km', lapRecord: '1:27.064', type: 'Figure-8 Circuit', famous: 'Unique figure-8 design, Racing mecca' },
-          { name: 'Laguna Seca', country: 'USA', length: '3.602 km', lapRecord: '1:08.209', type: 'Road Course', famous: 'Corkscrew corner, technical track' },
-          { name: 'Fuji Speedway', country: 'Japan', length: '4.563 km', lapRecord: '1:16.689', type: 'High Banked', famous: 'Mount Fuji views, high speed' },
-          { name: 'Road Atlanta', country: 'USA', length: '4.048 km', lapRecord: '1:12.346', type: 'Road Course', famous: 'Smooth fast circuit, great for racing' },
-          { name: 'Bathurst', country: 'Australia', length: '6.213 km', lapRecord: '2:03.780', type: 'Mountain Circuit', famous: 'Iconic Conrod straight, Mount Panorama' }
-        ];
-        const randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
-        const trackEmbed = new EmbedBuilder()
-          .setTitle(`🏁 ${randomTrack.name}`)
-          .addFields(
-            { name: 'Country', value: randomTrack.country, inline: true },
-            { name: 'Track Length', value: randomTrack.length, inline: true },
-            { name: 'Type', value: randomTrack.type, inline: true },
-            { name: 'Lap Record', value: randomTrack.lapRecord, inline: true },
-            { name: 'Famous For', value: randomTrack.famous, inline: false }
-          )
-          .setColor(0xff6600);
-        await interaction.reply({ embeds: [trackEmbed] });
-        break;
 
-      case 'profile':
-        const profileUser = interaction.options.getUser('user') || interaction.user;
-        const profile = getUserProfile(profileUser.id);
-        const profileEmbed = new EmbedBuilder()
-          .setTitle(`🏁 ${profileUser.tag}'s Racing Profile`)
-          .setThumbnail(profileUser.displayAvatarURL())
-          .addFields(
-            { name: 'Level', value: profile.level.toString(), inline: true },
-            { name: 'XP', value: `${profile.xp} / ${profile.level * 1000}`, inline: true },
-            { name: 'Races Completed', value: profile.races.toString(), inline: true },
-            { name: 'Wins', value: profile.wins.toString(), inline: true },
-            { name: 'Win Rate', value: profile.races > 0 ? `${((profile.wins / profile.races) * 100).toFixed(1)}%` : 'N/A', inline: true },
-            { name: 'Crew', value: profile.crew || 'None', inline: true },
-            { name: 'Favorite Track', value: profile.favoriteTrack || 'Not set', inline: false },
-            { name: 'Bio', value: profile.bio, inline: false },
-            { name: 'Member Since', value: profile.joinedDate.toDateString(), inline: false }
-          )
-          .setColor(0x00ff00);
-        await interaction.reply({ embeds: [profileEmbed] });
-        break;
 
-      case 'leaderboard':
-        const sortedUsers = Array.from(userProfiles.values()).sort((a, b) => b.xp - a.xp).slice(0, 10);
-        const leaderboardEmbed = new EmbedBuilder()
-          .setTitle('🏆 Racing Leaderboard')
-          .setColor(0xffd700);
-        sortedUsers.forEach((user, index) => {
-          leaderboardEmbed.addFields({
-            name: `#${index + 1} - Level ${user.level}`,
-            value: `<@${user.userId}> | ${user.xp} XP | ${user.wins} Wins`,
-            inline: false
-          });
-        });
-        await interaction.reply({ embeds: [leaderboardEmbed] });
-        break;
 
-      case 'crew':
-        const crewAction = interaction.options.getString('action');
-        const crewName = interaction.options.getString('crewname');
-        const userProfile = getUserProfile(interaction.user.id);
-        
-        if (crewAction === 'create') {
-          if (userCrews.has(crewName)) {
-            return interaction.reply({ content: `Crew **${crewName}** already exists!`, ephemeral: true });
-          }
-          try {
-            // Create role for crew first
-            const crewRole = await guild.roles.create({
-              name: crewName,
-              color: '#FF6600',
-              reason: `Auto-created role for crew: ${crewName}`
-            });
-            
-            console.log(`Created role: ${crewRole.name} with ID: ${crewRole.id}`);
-            
-            const crewCategory = guild.channels.cache.find(c => c.name === 'crews' && c.isCategory());
-            
-            // Create channel with proper permissions
-            const newChannel = await guild.channels.create({
-              name: crewName.toLowerCase().replace(/\s+/g, '-'),
-              type: 0, // Text channel
-              parent: crewCategory?.id,
-              topic: `${crewName} Racing Crew`
-            });
-            
-            // Set permissions: deny everyone, allow role
-            await newChannel.permissionOverwrites.set([
-              {
-                id: guild.roles.everyone.id,
-                deny: [PermissionFlagsBits.ViewChannel]
-              },
-              {
-                id: crewRole.id,
-                allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory]
-              }
-            ]);
-            
-            console.log(`Set permissions for channel ${newChannel.name}`);
-            
-            // Assign role to captain
-            await interaction.member.roles.add(crewRole);
-            
-            userCrews.set(crewName, { name: crewName, captain: interaction.user.id, members: [interaction.user.id], channelId: newChannel.id, roleId: crewRole.id });
-            userProfile.crew = crewName;
-            await interaction.reply({ content: `✅ Created crew **${crewName}**!\n🔐 Private channel: ${newChannel}\n👥 Role: <@&${crewRole.id}>`, ephemeral: true });
-          } catch (error) {
-            console.error(`Error creating crew: ${error}`);
-            await interaction.reply({ content: `❌ Failed to create crew: ${error.message}`, ephemeral: true });
-          }
-        } else if (crewAction === 'join') {
-          if (!userCrews.has(crewName)) {
-            return interaction.reply({ content: `Crew **${crewName}** not found!`, ephemeral: true });
-          }
-          const crew = userCrews.get(crewName);
-          if (crew.members.includes(interaction.user.id)) {
-            return interaction.reply({ content: `You're already in crew **${crewName}**!`, ephemeral: true });
-          }
-          
-          try {
-            // Assign role to member
-            if (crew.roleId) {
-              const role = guild.roles.cache.get(crew.roleId);
-              if (role) {
-                await interaction.member.roles.add(role);
-              } else {
-                return interaction.reply({ content: `❌ Crew role not found. Contact a mod.`, ephemeral: true });
-              }
-            }
-            crew.members.push(interaction.user.id);
-            userProfile.crew = crewName;
-            const crewMsg = crew.channelId ? ` Access crew channel <#${crew.channelId}>!` : '';
-            await interaction.reply({ content: `✅ Joined crew **${crewName}**!${crewMsg}`, ephemeral: true });
-          } catch (error) {
-            console.error(`Error joining crew: ${error}`);
-            await interaction.reply({ content: `❌ Failed to join crew: ${error.message}`, ephemeral: true });
-          }
-        }
-        break;
 
-      case 'crew-members':
-        const userCrew = getUserProfile(interaction.user.id).crew;
-        if (!userCrew) {
-          return interaction.reply({ content: 'You are not in a crew!', ephemeral: true });
-        }
-        const crewData = userCrews.get(userCrew);
-        const crewListEmbed = new EmbedBuilder()
-          .setTitle(`👥 ${userCrew} Members`)
-          .setDescription(crewData.members.map((id, i) => `${i + 1}. <@${id}>`).join('\n'))
-          .setFooter({ text: `Captain: <@${crewData.captain}>` })
-          .setColor(0x0000ff);
-        await interaction.reply({ embeds: [crewListEmbed] });
-        break;
 
-      case 'achievements':
-        const achieveUser = interaction.options.getUser('user') || interaction.user;
-        const achieveProfile = getUserProfile(achieveUser.id);
-        const achieveList = [
-          { name: '🥇 First Win', condition: achieveProfile.wins >= 1 },
-          { name: '🏁 Racer', condition: achieveProfile.races >= 5 },
-          { name: '⭐ Pro Racer', condition: achieveProfile.level >= 5 },
-          { name: '👑 Champion', condition: achieveProfile.wins >= 20 },
-          { name: '🚀 Speedster', condition: achieveProfile.races >= 50 },
-          { name: '🎖️ Veteran', condition: achieveProfile.races >= 100 }
-        ];
-        const unlockedAchievements = achieveList.filter(a => a.condition);
-        const achievementsEmbed = new EmbedBuilder()
-          .setTitle(`🏆 ${achieveUser.tag}'s Achievements`)
-          .setDescription(unlockedAchievements.length > 0 ? unlockedAchievements.map(a => a.name).join('\n') : 'No achievements yet!')
-          .setFooter({ text: `${unlockedAchievements.length}/${achieveList.length} unlocked` })
-          .setColor(0xffa500);
-        await interaction.reply({ embeds: [achievementsEmbed] });
-        break;
 
-      case 'ranking':
-        const rankProfile = getUserProfile(interaction.user.id);
-        const userRank = Array.from(userProfiles.values()).filter(u => u.xp > rankProfile.xp).length + 1;
-        const totalUsers = userProfiles.size;
-        const rankEmbed = new EmbedBuilder()
-          .setTitle("🎯 Your Ranking")
-          .addFields(
-            { name: 'Rank', value: `#${userRank} of ${totalUsers}`, inline: true },
-            { name: 'Level', value: rankProfile.level.toString(), inline: true },
-            { name: 'Total XP', value: rankProfile.xp.toString(), inline: true },
-            { name: 'Progress to Next Level', value: `${rankProfile.xp % 1000}/1000 XP`, inline: true }
-          )
-          .setColor(0x9370db);
-        await interaction.reply({ embeds: [rankEmbed] });
-        break;
 
-      case 'favorite':
-        const favTrack = interaction.options.getString('track');
-        const favProfile = getUserProfile(interaction.user.id);
-        favProfile.favoriteTrack = favTrack;
-        await interaction.reply({ content: `✅ Set your favorite track to **${favTrack}**!`, ephemeral: true });
-        break;
 
-      case 'dailychallenge':
-        const today = new Date().toDateString();
-        const challengeKey = `${interaction.user.id}-${today}`;
-        
-        if (dailyChallengeLog.has(challengeKey)) {
-          return interaction.reply({ content: 'You already completed today\'s challenge! Come back tomorrow.', ephemeral: true });
-        }
-        
-        const xpReward = 100;
-        addXP(interaction.user.id, xpReward);
-        dailyChallengeLog.set(challengeKey, true);
-        const challengeProfile = getUserProfile(interaction.user.id);
-        challengeProfile.races += 1;
-        
-        const challengeEmbed = new EmbedBuilder()
-          .setTitle('🏁 Daily Challenge Complete!')
-          .addFields(
-            { name: 'XP Earned', value: `+${xpReward} XP`, inline: true },
-            { name: 'New Level', value: challengeProfile.level.toString(), inline: true },
-            { name: 'Total XP', value: challengeProfile.xp.toString(), inline: true }
-          )
-          .setColor(0x00ff00);
-        await interaction.reply({ embeds: [challengeEmbed] });
-        break;
 
-      case 'tournament':
-        const tournamentChannel = guild.channels.cache.find(channel => channel.name === 'tournament');
-        if (!tournamentChannel) {
-          return interaction.reply({ content: 'Tournament channel not found!', ephemeral: true });
-        }
-        const tournamentEmbed = new EmbedBuilder()
-          .setTitle('🏆 Racing Tournament')
-          .setDescription('Use the tournament channel to organize and track ongoing tournaments!')
-          .addFields(
-            { name: 'Status', value: 'Awaiting participants', inline: true },
-            { name: 'Channel', value: tournamentChannel.toString(), inline: true }
-          )
-          .setColor(0xff6600);
-        await interaction.reply({ embeds: [tournamentEmbed] });
-        break;
+
+
+
+
+
+
+
+
+
+
 
       case 'help':
         if (helpCommandUsed.has(guild.id)) {
@@ -1226,14 +915,12 @@ client.on('interactionCreate', async interaction => {
         helpCommandUsed.add(guild.id);
         
         const helpEmbed = new EmbedBuilder()
-          .setTitle('🏁 Racing Nation Bot - Commands List')
+          .setTitle('🔧 Racing Nation Bot - Commands List')
           .setDescription('Complete list of all available commands')
           .addFields(
-            { name: '👤 PROFILE & COMMUNITY', value: '`/profile` - View racing profile\n`/leaderboard` - Top racers by XP\n`/ranking` - Your rank & standing\n`/achievements` - View badges earned\n`/favorite` - Set favorite track', inline: false },
-            { name: '👥 CREW SYSTEM', value: '`/crew` - Create or join a racing crew\n`/crew-members` - List crew members', inline: false },
-            { name: '🎮 FUN & CHALLENGES', value: '`/dailychallenge` - Daily XP reward\n`/trivia` - Random trivia question\n`/track` - Random racing track info\n`/tournament` - Racing tournament info', inline: false },
-            { name: '🛡️ MODERATION (Race Control role)', value: '`/kick` - Remove user\n`/ban` - Ban user\n`/unban` - Unban user\n`/tempban` - Temp ban (hours)\n`/mute` - Timeout user\n`/unmute` - Remove timeout\n`/warn` - Warn user\n`/warnings` - Check warnings\n`/clearwarnings` - Clear all warnings\n`/purge` - Delete messages\n`/nick` - Change nickname\n`/roleadd` - Add role\n`/roleremove` - Remove role\n`/lock` - Lock channel\n`/unlock` - Unlock channel\n`/slowmode` - Set slowmode\n`/announce` - Send announcement\n`/logs` - View moderation logs\n`/report` - Report a user (everyone)', inline: false },
-            { name: '📊 INFO COMMANDS', value: '`/ping` - Bot latency\n`/uptime` - Bot uptime\n`/botinfo` - Bot statistics\n`/serverinfo` - Server info\n`/userinfo` - User details\n`/roles` - List user roles\n`/avatar` - Show user avatar\n`/channelinfo` - Channel details\n`/invite` - Bot invite link\n`/randommember` - Random member\n`/countroles` - Role counts\n`/vote` - Create poll\n`/say` - Bot repeats message\n`/serverbanner` - Server banner', inline: false }
+            { name: '🛡️ MODERATION (Match Officials role required)', value: '`/kick` - Remove user\n`/ban` - Ban user\n`/unban` - Unban user\n`/tempban` - Temp ban (hours)\n`/mute` - Timeout user\n`/unmute` - Remove timeout\n`/warn` - Warn user\n`/warnings` - Check warnings\n`/clearwarnings` - Clear all warnings\n`/purge` - Delete messages\n`/nick` - Change nickname\n`/roleadd` - Add role\n`/roleremove` - Remove role\n`/lock` - Lock channel\n`/unlock` - Unlock channel\n`/slowmode` - Set slowmode\n`/announce` - Send announcement\n`/logs` - View moderation logs\n`/softban` - Softban user\n`/infractions` - View user infractions\n`/raidmode` - Toggle raid mode', inline: false },
+            { name: '📊 INFO COMMANDS', value: '`/ping` - Bot latency\n`/uptime` - Bot uptime\n`/botinfo` - Bot statistics\n`/serverinfo` - Server info\n`/userinfo` - User details\n`/roles` - List user roles\n`/avatar` - Show user avatar\n`/channelinfo` - Channel details\n`/invite` - Bot invite link\n`/randommember` - Random member\n`/countroles` - Role counts\n`/vote` - Create poll\n`/say` - Bot repeats message\n`/serverbanner` - Server banner', inline: false },
+            { name: '📋 OTHER COMMANDS', value: '`/trivia` - Random trivia question\n`/report` - Report a user\n`/appeal` - Appeal your ban', inline: false }
           )
           .setFooter({ text: 'React 👍 if this helps! | This command can only be used once per server.' })
           .setColor(0xff6600);
@@ -1243,12 +930,12 @@ client.on('interactionCreate', async interaction => {
         break;
 
       case 'raidmode':
-        // Check for Race Director role
-        const raceDirectorRole = guild.roles.cache.find(r => r.name === 'Race Director');
-        if (!raceDirectorRole || !member.roles.cache.has(raceDirectorRole.id)) {
+        // Check for Match Officials role
+        const matchOfficialsRoleRaid = guild.roles.cache.find(r => r.name === 'Match Officials');
+        if (!matchOfficialsRoleRaid || !member.roles.cache.has(matchOfficialsRoleRaid.id)) {
           // Also allow bot admins
           if (!member.permissions.has(PermissionFlagsBits.Administrator)) {
-            return interaction.reply({ content: 'Only Race Director or Server Admin can activate raid mode!', ephemeral: true });
+            return interaction.reply({ content: 'Only Match Officials or Server Admin can activate raid mode!', ephemeral: true });
           }
         }
         
@@ -1355,36 +1042,7 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: '✅ Appeal submitted! Moderators will review it.', ephemeral: true });
         break;
 
-      case 'time':
-        const lapTime = interaction.options.getNumber('laptime');
-        const track = interaction.options.getString('track');
-        const game = interaction.options.getString('game');
-        
-        // Format MM:SS.ms
-        const minutes = Math.floor(lapTime / 60);
-        const seconds = Math.floor(lapTime % 60);
-        const milliseconds = Math.round((lapTime % 1) * 1000);
-        const formattedTime = `${minutes}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`;
-        
-        const lapTimesChannel = guild.channels.cache.find(c => c.name === 'lap-times');
-        if (!lapTimesChannel) {
-          return interaction.reply({ content: 'No #lap-times channel found on this server.', ephemeral: true });
-        }
-        
-        const lapTimeEmbed = new EmbedBuilder()
-          .setTitle('🏁 New Lap Time Submitted')
-          .addFields(
-            { name: 'Driver', value: interaction.user.username, inline: true },
-            { name: 'Lap Time', value: formattedTime, inline: true },
-            { name: 'Track', value: track, inline: true },
-            { name: 'Game', value: game, inline: true }
-          )
-          .setColor(0x00ff00)
-          .setThumbnail(interaction.user.avatarURL());
-        
-        await lapTimesChannel.send({ embeds: [lapTimeEmbed] });
-        await interaction.reply({ content: `✅ Lap time of **${formattedTime}** submitted to #lap-times!`, ephemeral: true });
-        break;
+
 
       default:
         await interaction.reply({ content: 'Unknown command.', ephemeral: true });
@@ -1401,7 +1059,7 @@ client.on('messageCreate', message => {
     }
 });
 
-client.once('ready', async () => {
+client.on('ready', async () => {
     console.log(`✅ Logged in as ${client.user.tag}`);
     client.user.setActivity('Probably spying on XV ', { type: ActivityType.Watching });
     await registerCommands();
