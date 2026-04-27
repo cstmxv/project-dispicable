@@ -12,7 +12,7 @@ const client = new Client({
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = '1449775322580123648';
-const GUILD_ID = '1449893231100694582';
+const GUILD_ID = '1497925433251856484';
 
 let startTime = Date.now();
 const warnings = new Map(); // In-memory storage for warnings
@@ -186,8 +186,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('raidmode')
-    .setDescription('Toggle raid mode - locks all channels.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setDescription('Toggle raid mode - locks all channels.'),
 
   new SlashCommandBuilder()
     .setName('softban')
