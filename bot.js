@@ -309,7 +309,7 @@ client.on('interactionCreate', async interaction => {
 
   try {
     switch (commandName) {
-      case 'kick':
+      case 'kick': {
         const kickUser = interaction.options.getUser('user');
         const kickReason = interaction.options.getString('reason') || 'No reason provided';
         const kickMember = await guild.members.fetch(kickUser.id);
@@ -322,8 +322,9 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Kick Command Used**\nUser: ${interaction.user.tag}\nTarget: ${kickUser.tag}\nReason: ${kickReason}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
-      case 'ban':
+      case 'ban': {
         const banUser = interaction.options.getUser('user');
         const banReason = interaction.options.getString('reason') || 'No reason provided';
         await guild.members.ban(banUser, { reason: banReason });
@@ -335,8 +336,9 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Ban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${banUser.tag}\nReason: ${banReason}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
-      case 'mute':
+      case 'mute': {
         const muteUser = interaction.options.getUser('user');
         const muteTime = interaction.options.getInteger('time');
         const muteMember = await guild.members.fetch(muteUser.id);
@@ -354,8 +356,9 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Mute Command Used**\nUser: ${interaction.user.tag}\nTarget: ${muteUser.tag}\nDuration: ${muteTime} minutes\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
-      case 'unmute':
+      case 'unmute': {
         const unmuteUser = interaction.options.getUser('user');
         const unmuteMember = await guild.members.fetch(unmuteUser.id);
         const unmuteRole = guild.roles.cache.find(role => role.name === 'Muted');
@@ -367,8 +370,9 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Unmute Command Used**\nUser: ${interaction.user.tag}\nTarget: ${unmuteUser.tag}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
-      case 'warn':
+      case 'warn': {
         const warnUser = interaction.options.getUser('user');
         const warnReason = interaction.options.getString('reason') || 'No reason provided';
         const userWarnings = warnings.get(warnUser.id) || [];
@@ -406,8 +410,9 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Warn Command Used**\nUser: ${interaction.user.tag}\nTarget: ${warnUser.tag}\nReason: ${warnReason}\nTotal Warnings: ${warnCount}${autoAction}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
-      case 'warnings':
+      case 'warnings': {
         const warningsUser = interaction.options.getUser('user');
         const userWarns = warnings.get(warningsUser.id) || [];
         const embed = new EmbedBuilder()
@@ -420,8 +425,9 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Warnings Command Used**\nUser: ${interaction.user.tag}\nTarget: ${warningsUser.tag}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
-      case 'purge':
+      case 'purge': {
         const amount = interaction.options.getInteger('amount');
         await interaction.channel.bulkDelete(amount);
         await interaction.reply({ content: `Deleted ${amount} messages.`, ephemeral: true });
@@ -430,8 +436,9 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Purge Command Used**\nUser: ${interaction.user.tag}\nChannel: ${interaction.channel.name}\nAmount: ${amount}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
-      case 'nick':
+      case 'nick': {
         const nickUser = interaction.options.getUser('user');
         const nickname = interaction.options.getString('nickname');
         const nickMember = await guild.members.fetch(nickUser.id);
@@ -442,8 +449,9 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Nick Command Used**\nUser: ${interaction.user.tag}\nTarget: ${nickUser.tag}\nNew Nickname: ${nickname}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
-      case 'roleadd':
+      case 'roleadd': {
         const roleAddUser = interaction.options.getUser('user');
         const roleAdd = interaction.options.getRole('role');
         const roleAddMember = await guild.members.fetch(roleAddUser.id);
@@ -454,8 +462,9 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Roleadd Command Used**\nUser: ${interaction.user.tag}\nTarget: ${roleAddUser.tag}\nRole: ${roleAdd.name}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
-      case 'roleremove':
+      case 'roleremove': {
         const roleRemoveUser = interaction.options.getUser('user');
         const roleRemove = interaction.options.getRole('role');
         const roleRemoveMember = await guild.members.fetch(roleRemoveUser.id);
@@ -466,8 +475,9 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Roleremove Command Used**\nUser: ${interaction.user.tag}\nTarget: ${roleRemoveUser.tag}\nRole: ${roleRemove.name}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
-      case 'lock':
+      case 'lock': {
         const lockChannel = interaction.options.getChannel('channel');
         await lockChannel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false });
         await interaction.reply({ content: `Locked ${lockChannel.name}.`, ephemeral: true });
@@ -476,8 +486,9 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Lock Command Used**\nUser: ${interaction.user.tag}\nChannel: ${lockChannel.name}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
-      case 'unlock':
+      case 'unlock': {
         const unlockChannel = interaction.options.getChannel('channel');
         await unlockChannel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: null });
         await interaction.reply({ content: `Unlocked ${unlockChannel.name}.`, ephemeral: true });
@@ -486,8 +497,9 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Unlock Command Used**\nUser: ${interaction.user.tag}\nChannel: ${unlockChannel.name}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
-      case 'slowmode':
+      case 'slowmode': {
         const slowChannel = interaction.options.getChannel('channel');
         const slowTime = interaction.options.getInteger('time');
         await slowChannel.setRateLimitPerUser(slowTime);
@@ -497,8 +509,9 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Slowmode Command Used**\nUser: ${interaction.user.tag}\nChannel: ${slowChannel.name}\nTime: ${slowTime} seconds\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
-      case 'announce':
+      case 'announce': {
         const announceChannel = interaction.options.getChannel('channel');
         const announceMessage = interaction.options.getString('message');
         await announceChannel.send(announceMessage);
@@ -508,8 +521,9 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Announce Command Used**\nUser: ${interaction.user.tag}\nChannel: ${announceChannel.name}\nMessage: ${announceMessage}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
-      case 'tempban':
+      case 'tempban': {
         const tempbanUser = interaction.options.getUser('user');
         const tempbanHours = interaction.options.getInteger('hours');
         const tempbanReason = interaction.options.getString('reason') || 'No reason provided';
@@ -529,8 +543,9 @@ client.on('interactionCreate', async interaction => {
           }
         }, tempbanHours * 3600000);
         break;
+      }
 
-      case 'clearwarnings':
+      case 'clearwarnings': {
         const clearUser = interaction.options.getUser('user');
         const clearedCount = warnings.get(clearUser.id)?.length || 0;
         warnings.delete(clearUser.id);
@@ -541,8 +556,9 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Clearwarnings Command Used**\nUser: ${interaction.user.tag}\nTarget: ${clearUser.tag}\nCleared Warnings: ${clearedCount}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
-      case 'unban':
+      case 'unban': {
         const unbanUser = interaction.options.getUser('user');
         const unbanReason = interaction.options.getString('reason') || 'No reason provided';
         await guild.bans.remove(unbanUser.id, unbanReason);
@@ -553,6 +569,7 @@ client.on('interactionCreate', async interaction => {
           await botUseChannel.send(`**Unban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${unbanUser.tag}\nReason: ${unbanReason}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
+      }
 
       case 'logs':
         const logLimit = interaction.options.getInteger('limit') || 10;
