@@ -33,9 +33,9 @@ const bannedContent = [
 
 
 
-// Function to get bot-logs channel
-async function getBotLogsChannel(guild) {
-  return guild.channels.cache.find(channel => channel.name === 'bot-logs');
+// Function to get bot-use channel
+async function getBotUseChannel(guild) {
+  return guild.channels.cache.find(channel => channel.name === 'bot-use');
 }
 
 // Function to log moderation action
@@ -242,7 +242,7 @@ client.on('messageCreate', async message => {
   if (foundBanned) {
     try {
       await message.delete();
-      const modsChannel = message.guild.channels.cache.find(c => c.name === 'bot-logs');
+        const modsChannel = message.guild.channels.cache.find(c => c.name === 'bot-use');
       if (modsChannel) {
         const reportEmbed = new EmbedBuilder()
           .setTitle('⚠️ Content Filter Alert')
@@ -317,9 +317,9 @@ client.on('interactionCreate', async interaction => {
         await sendModerationDM(kickUser, 'You have been kicked', kickReason);
         logModerationAction({ action: 'kick', executor: interaction.user.tag, target: kickUser.tag, reason: kickReason });
         await interaction.reply({ content: `Kicked ${kickUser.tag} for: ${kickReason}`, ephemeral: true });
-        const botLogsChannel = await getBotLogsChannel(guild);
-        if (botLogsChannel) {
-          await botLogsChannel.send(`**Kick Command Used**\nUser: ${interaction.user.tag}\nTarget: ${kickUser.tag}\nReason: ${kickReason}\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Kick Command Used**\nUser: ${interaction.user.tag}\nTarget: ${kickUser.tag}\nReason: ${kickReason}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -330,9 +330,9 @@ client.on('interactionCreate', async interaction => {
         await sendModerationDM(banUser, 'You have been banned', banReason);
         logModerationAction({ action: 'ban', executor: interaction.user.tag, target: banUser.tag, reason: banReason });
         await interaction.reply({ content: `Banned ${banUser.tag} for: ${banReason}`, ephemeral: true });
-        const botLogsChannelBan = await getBotLogsChannel(guild);
-        if (botLogsChannelBan) {
-          await botLogsChannelBan.send(`**Ban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${banUser.tag}\nReason: ${banReason}\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Ban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${banUser.tag}\nReason: ${banReason}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -349,9 +349,9 @@ client.on('interactionCreate', async interaction => {
           await muteMember.roles.remove(muteRole);
         }, muteTime * 60000);
         await interaction.reply({ content: `Muted ${muteUser.tag} for ${muteTime} minutes.`, ephemeral: true });
-        const botLogsChannelMute = await getBotLogsChannel(guild);
-        if (botLogsChannelMute) {
-          await botLogsChannelMute.send(`**Mute Command Used**\nUser: ${interaction.user.tag}\nTarget: ${muteUser.tag}\nDuration: ${muteTime} minutes\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Mute Command Used**\nUser: ${interaction.user.tag}\nTarget: ${muteUser.tag}\nDuration: ${muteTime} minutes\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -362,9 +362,9 @@ client.on('interactionCreate', async interaction => {
         if (!unmuteRole) return interaction.reply('Muted role not found.');
         await unmuteMember.roles.remove(unmuteRole);
         await interaction.reply({ content: `Unmuted ${unmuteUser.tag}.`, ephemeral: true });
-        const botLogsChannelUnmute = await getBotLogsChannel(guild);
-        if (botLogsChannelUnmute) {
-          await botLogsChannelUnmute.send(`**Unmute Command Used**\nUser: ${interaction.user.tag}\nTarget: ${unmuteUser.tag}\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Unmute Command Used**\nUser: ${interaction.user.tag}\nTarget: ${unmuteUser.tag}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -401,9 +401,9 @@ client.on('interactionCreate', async interaction => {
         }
         
         await interaction.reply({ content: `Warned ${warnUser.tag} for: ${warnReason} (Total warnings: ${warnCount})${autoAction}`, ephemeral: true });
-        const botLogsChannelWarn = await getBotLogsChannel(guild);
-        if (botLogsChannelWarn) {
-          await botLogsChannelWarn.send(`**Warn Command Used**\nUser: ${interaction.user.tag}\nTarget: ${warnUser.tag}\nReason: ${warnReason}\nTotal Warnings: ${warnCount}${autoAction}\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Warn Command Used**\nUser: ${interaction.user.tag}\nTarget: ${warnUser.tag}\nReason: ${warnReason}\nTotal Warnings: ${warnCount}${autoAction}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -415,9 +415,9 @@ client.on('interactionCreate', async interaction => {
           .setDescription(userWarns.length ? userWarns.map((w, i) => `${i+1}. ${w.reason} (${w.date.toDateString()})`).join('\n') : 'No warnings.')
           .setColor(0xff0000);
         await interaction.reply({ embeds: [embed], ephemeral: true });
-        const botLogsChannelWarnings = await getBotLogsChannel(guild);
-        if (botLogsChannelWarnings) {
-          await botLogsChannelWarnings.send(`**Warnings Command Used**\nUser: ${interaction.user.tag}\nTarget: ${warningsUser.tag}\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Warnings Command Used**\nUser: ${interaction.user.tag}\nTarget: ${warningsUser.tag}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -425,9 +425,9 @@ client.on('interactionCreate', async interaction => {
         const amount = interaction.options.getInteger('amount');
         await interaction.channel.bulkDelete(amount);
         await interaction.reply({ content: `Deleted ${amount} messages.`, ephemeral: true });
-        const botLogsChannelPurge = await getBotLogsChannel(guild);
-        if (botLogsChannelPurge) {
-          await botLogsChannelPurge.send(`**Purge Command Used**\nUser: ${interaction.user.tag}\nChannel: ${interaction.channel.name}\nAmount: ${amount}\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Purge Command Used**\nUser: ${interaction.user.tag}\nChannel: ${interaction.channel.name}\nAmount: ${amount}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -437,9 +437,9 @@ client.on('interactionCreate', async interaction => {
         const nickMember = await guild.members.fetch(nickUser.id);
         await nickMember.setNickname(nickname);
         await interaction.reply({ content: `Changed ${nickUser.tag}'s nickname to ${nickname}.`, ephemeral: true });
-        const botLogsChannelNick = await getBotLogsChannel(guild);
-        if (botLogsChannelNick) {
-          await botLogsChannelNick.send(`**Nick Command Used**\nUser: ${interaction.user.tag}\nTarget: ${nickUser.tag}\nNew Nickname: ${nickname}\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Nick Command Used**\nUser: ${interaction.user.tag}\nTarget: ${nickUser.tag}\nNew Nickname: ${nickname}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -449,9 +449,9 @@ client.on('interactionCreate', async interaction => {
         const roleAddMember = await guild.members.fetch(roleAddUser.id);
         await roleAddMember.roles.add(roleAdd);
         await interaction.reply({ content: `Added role ${roleAdd.name} to ${roleAddUser.tag}.`, ephemeral: true });
-        const botLogsChannelRoleAdd = await getBotLogsChannel(guild);
-        if (botLogsChannelRoleAdd) {
-          await botLogsChannelRoleAdd.send(`**Roleadd Command Used**\nUser: ${interaction.user.tag}\nTarget: ${roleAddUser.tag}\nRole: ${roleAdd.name}\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Roleadd Command Used**\nUser: ${interaction.user.tag}\nTarget: ${roleAddUser.tag}\nRole: ${roleAdd.name}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -461,9 +461,9 @@ client.on('interactionCreate', async interaction => {
         const roleRemoveMember = await guild.members.fetch(roleRemoveUser.id);
         await roleRemoveMember.roles.remove(roleRemove);
         await interaction.reply({ content: `Removed role ${roleRemove.name} from ${roleRemoveUser.tag}.`, ephemeral: true });
-        const botLogsChannelRoleRemove = await getBotLogsChannel(guild);
-        if (botLogsChannelRoleRemove) {
-          await botLogsChannelRoleRemove.send(`**Roleremove Command Used**\nUser: ${interaction.user.tag}\nTarget: ${roleRemoveUser.tag}\nRole: ${roleRemove.name}\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Roleremove Command Used**\nUser: ${interaction.user.tag}\nTarget: ${roleRemoveUser.tag}\nRole: ${roleRemove.name}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -471,9 +471,9 @@ client.on('interactionCreate', async interaction => {
         const lockChannel = interaction.options.getChannel('channel');
         await lockChannel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false });
         await interaction.reply({ content: `Locked ${lockChannel.name}.`, ephemeral: true });
-        const botLogsChannelLock = await getBotLogsChannel(guild);
-        if (botLogsChannelLock) {
-          await botLogsChannelLock.send(`**Lock Command Used**\nUser: ${interaction.user.tag}\nChannel: ${lockChannel.name}\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Lock Command Used**\nUser: ${interaction.user.tag}\nChannel: ${lockChannel.name}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -481,9 +481,9 @@ client.on('interactionCreate', async interaction => {
         const unlockChannel = interaction.options.getChannel('channel');
         await unlockChannel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: null });
         await interaction.reply({ content: `Unlocked ${unlockChannel.name}.`, ephemeral: true });
-        const botLogsChannelUnlock = await getBotLogsChannel(guild);
-        if (botLogsChannelUnlock) {
-          await botLogsChannelUnlock.send(`**Unlock Command Used**\nUser: ${interaction.user.tag}\nChannel: ${unlockChannel.name}\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Unlock Command Used**\nUser: ${interaction.user.tag}\nChannel: ${unlockChannel.name}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -492,9 +492,9 @@ client.on('interactionCreate', async interaction => {
         const slowTime = interaction.options.getInteger('time');
         await slowChannel.setRateLimitPerUser(slowTime);
         await interaction.reply({ content: `Set slowmode in ${slowChannel.name} to ${slowTime} seconds.`, ephemeral: true });
-        const botLogsChannelSlowmode = await getBotLogsChannel(guild);
-        if (botLogsChannelSlowmode) {
-          await botLogsChannelSlowmode.send(`**Slowmode Command Used**\nUser: ${interaction.user.tag}\nChannel: ${slowChannel.name}\nTime: ${slowTime} seconds\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Slowmode Command Used**\nUser: ${interaction.user.tag}\nChannel: ${slowChannel.name}\nTime: ${slowTime} seconds\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -503,9 +503,9 @@ client.on('interactionCreate', async interaction => {
         const announceMessage = interaction.options.getString('message');
         await announceChannel.send(announceMessage);
         await interaction.reply({ content: 'Announcement sent.', ephemeral: true });
-        const botLogsChannelAnnounce = await getBotLogsChannel(guild);
-        if (botLogsChannelAnnounce) {
-          await botLogsChannelAnnounce.send(`**Announce Command Used**\nUser: ${interaction.user.tag}\nChannel: ${announceChannel.name}\nMessage: ${announceMessage}\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Announce Command Used**\nUser: ${interaction.user.tag}\nChannel: ${announceChannel.name}\nMessage: ${announceMessage}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -517,9 +517,9 @@ client.on('interactionCreate', async interaction => {
         await sendModerationDM(tempbanUser, 'You have been temporarily banned', tempbanReason, `${tempbanHours} hours`);
         logModerationAction({ action: 'tempban', executor: interaction.user.tag, target: tempbanUser.tag, duration: `${tempbanHours} hours`, reason: tempbanReason });
         await interaction.reply({ content: `Temporarily banned ${tempbanUser.tag} for ${tempbanHours} hours. Reason: ${tempbanReason}`, ephemeral: true });
-        const botLogsChannelTempban = await getBotLogsChannel(guild);
-        if (botLogsChannelTempban) {
-          await botLogsChannelTempban.send(`**Tempban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${tempbanUser.tag}\nDuration: ${tempbanHours} hours\nReason: ${tempbanReason}\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Tempban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${tempbanUser.tag}\nDuration: ${tempbanHours} hours\nReason: ${tempbanReason}\nTimestamp: ${new Date().toISOString()}`);
         }
         setTimeout(async () => {
           try {
@@ -536,9 +536,9 @@ client.on('interactionCreate', async interaction => {
         warnings.delete(clearUser.id);
         logModerationAction({ action: 'clearwarnings', executor: interaction.user.tag, target: clearUser.tag, clearedCount: clearedCount });
         await interaction.reply({ content: `Cleared all ${clearedCount} warnings for ${clearUser.tag}.`, ephemeral: true });
-        const botLogsChannelClearwarnings = await getBotLogsChannel(guild);
-        if (botLogsChannelClearwarnings) {
-          await botLogsChannelClearwarnings.send(`**Clearwarnings Command Used**\nUser: ${interaction.user.tag}\nTarget: ${clearUser.tag}\nCleared Warnings: ${clearedCount}\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Clearwarnings Command Used**\nUser: ${interaction.user.tag}\nTarget: ${clearUser.tag}\nCleared Warnings: ${clearedCount}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -548,9 +548,9 @@ client.on('interactionCreate', async interaction => {
         await guild.bans.remove(unbanUser.id, unbanReason);
         logModerationAction({ action: 'unban', executor: interaction.user.tag, target: unbanUser.tag, reason: unbanReason });
         await interaction.reply({ content: `Unbanned ${unbanUser.tag}. Reason: ${unbanReason}`, ephemeral: true });
-        const botLogsChannelUnban = await getBotLogsChannel(guild);
-        if (botLogsChannelUnban) {
-          await botLogsChannelUnban.send(`**Unban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${unbanUser.tag}\nReason: ${unbanReason}\nTimestamp: ${new Date().toISOString()}`);
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          await botUseChannel.send(`**Unban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${unbanUser.tag}\nReason: ${unbanReason}\nTimestamp: ${new Date().toISOString()}`);
         }
         break;
 
@@ -625,6 +625,10 @@ client.on('interactionCreate', async interaction => {
           }
           await interaction.reply({ content: '🟢 **Raid mode DISABLED** - All channels unlocked.', ephemeral: false });
           logModerationAction({ action: 'raidmode-disable', executor: interaction.user.tag, target: 'Guild', reason: 'Raid mode disabled' });
+          const botUseChannel = await getBotUseChannel(guild);
+          if (botUseChannel) {
+            await botUseChannel.send(`**Raidmode Disabled**\nUser: ${interaction.user.tag}\nTimestamp: ${new Date().toISOString()}`);
+          }
         } else {
           raidMode.add(guild.id);
           // Lock all channels
@@ -638,6 +642,10 @@ client.on('interactionCreate', async interaction => {
           }
           await interaction.reply({ content: '🔴 **RAID MODE ACTIVATED** - All channels locked. Use `/raidmode` to disable.', ephemeral: false });
           logModerationAction({ action: 'raidmode-enable', executor: interaction.user.tag, target: 'Guild', reason: 'Raid mode activated' });
+          const botUseChannel = await getBotUseChannel(guild);
+          if (botUseChannel) {
+            await botUseChannel.send(`**Raidmode Enabled**\nUser: ${interaction.user.tag}\nTimestamp: ${new Date().toISOString()}`);
+          }
         }
         break;
 
@@ -661,6 +669,10 @@ client.on('interactionCreate', async interaction => {
           await sendModerationDM(softbanUser, 'You have been softbanned', softbanReason);
           logModerationAction({ action: 'softban', executor: interaction.user.tag, target: softbanUser.tag, reason: softbanReason });
           await interaction.reply({ content: `✅ Softbanned ${softbanUser.tag} and deleted last 7 days of messages. Reason: ${softbanReason}`, ephemeral: true });
+          const botUseChannel = await getBotUseChannel(guild);
+          if (botUseChannel) {
+            await botUseChannel.send(`**Softban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${softbanUser.tag}\nReason: ${softbanReason}\nTimestamp: ${new Date().toISOString()}`);
+          }
         } catch (err) {
           await interaction.reply({ content: `❌ Failed to softban user: ${err.message}`, ephemeral: true });
         }
