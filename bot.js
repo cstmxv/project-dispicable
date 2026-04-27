@@ -12,13 +12,12 @@ const client = new Client({
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = '1449775322580123648';
-const GUILD_ID = '';
+const GUILD_ID = '1449893231100694582';
 
 let startTime = Date.now();
 const warnings = new Map(); // In-memory storage for warnings
 const moderationLogs = []; // Store all moderation actions
 const helpCommandUsed = new Set(); // Track which guilds have used help command
-const appeals = new Map(); // User appeals for bans
 const guildMemberCounts = new Map(); // Track member milestones
 const raidMode = new Set(); // Guilds in raid mode
 const bannedContent = [
@@ -159,70 +158,6 @@ const commands = [
     .addStringOption(option => option.setName('message').setDescription('The announcement message').setRequired(true))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
-  // Utility Commands
-  new SlashCommandBuilder()
-    .setName('ping')
-    .setDescription('Show bot latency.'),
-
-  new SlashCommandBuilder()
-    .setName('uptime')
-    .setDescription('Show bot uptime.'),
-
-  new SlashCommandBuilder()
-    .setName('botinfo')
-    .setDescription('Show bot version, total commands, uptime.'),
-
-  new SlashCommandBuilder()
-    .setName('serverinfo')
-    .setDescription('Show server stats: members, roles, channels.'),
-
-  new SlashCommandBuilder()
-    .setName('userinfo')
-    .setDescription('Display information about a user.')
-    .addUserOption(option => option.setName('user').setDescription('The user to get info about').setRequired(false)),
-
-  new SlashCommandBuilder()
-    .setName('roles')
-    .setDescription('List the roles of a user.')
-    .addUserOption(option => option.setName('user').setDescription('The user to list roles for').setRequired(false)),
-
-  new SlashCommandBuilder()
-    .setName('avatar')
-    .setDescription('Show a user’s avatar.')
-    .addUserOption(option => option.setName('user').setDescription('The user to show avatar for').setRequired(false)),
-
-  new SlashCommandBuilder()
-    .setName('channelinfo')
-    .setDescription('Show channel information.')
-    .addChannelOption(option => option.setName('channel').setDescription('The channel to get info about').setRequired(false)),
-
-  new SlashCommandBuilder()
-    .setName('invite')
-    .setDescription('Return a link to invite the bot.'),
-
-  new SlashCommandBuilder()
-    .setName('randommember')
-    .setDescription('Pick a random member from the server.'),
-
-  new SlashCommandBuilder()
-    .setName('countroles')
-    .setDescription('Count members per role.'),
-
-  new SlashCommandBuilder()
-    .setName('vote')
-    .setDescription('Create a simple reaction-based poll.')
-    .addStringOption(option => option.setName('question').setDescription('The poll question').setRequired(true))
-    .addStringOption(option => option.setName('options').setDescription('Poll options separated by commas').setRequired(true)),
-
-  new SlashCommandBuilder()
-    .setName('say')
-    .setDescription('Bot repeats a message in a channel.')
-    .addStringOption(option => option.setName('message').setDescription('The message to repeat').setRequired(true)),
-
-  new SlashCommandBuilder()
-    .setName('serverbanner')
-    .setDescription('Show the server banner if available.'),
-
   new SlashCommandBuilder()
     .setName('tempban')
     .setDescription('Temporarily ban a user.')
@@ -238,16 +173,6 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
   new SlashCommandBuilder()
-    .setName('report')
-    .setDescription('Report a user to moderators.')
-    .addUserOption(option => option.setName('user').setDescription('The user to report').setRequired(true))
-    .addStringOption(option => option.setName('reason').setDescription('Reason for report').setRequired(true)),
-
-  new SlashCommandBuilder()
-    .setName('trivia')
-    .setDescription('Get a trivia question.'),
-
-  new SlashCommandBuilder()
     .setName('unban')
     .setDescription('Unban a user from the server.')
     .addUserOption(option => option.setName('user').setDescription('The user to unban').setRequired(true))
@@ -260,12 +185,8 @@ const commands = [
     .addIntegerOption(option => option.setName('limit').setDescription('Number of logs to show (default 10)').setRequired(false)),
 
   new SlashCommandBuilder()
-    .setName('help')
-    .setDescription('Display all available bot commands (one-time use per server).'),
-
-  new SlashCommandBuilder()
     .setName('raidmode')
-    .setDescription('Toggle raid mode - locks all channels (Match Officials only).')
+    .setDescription('Toggle raid mode - locks all channels.')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   new SlashCommandBuilder()
@@ -281,8 +202,8 @@ const commands = [
     .addUserOption(option => option.setName('user').setDescription('The user to check').setRequired(true)),
 
   new SlashCommandBuilder()
-    .setName('appeal')
-    .setDescription('Appeal your ban (mods will review).'),
+    .setName('help')
+    .setDescription('Display all available moderation commands for cmds role.'),
 ];
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -374,20 +295,16 @@ client.on('interactionCreate', async interaction => {
   const member = interaction.member;
   const guild = interaction.guild;
 
-  // Check for Match Officials role for moderation commands
-  const moderationCommands = ['kick', 'ban', 'mute', 'unmute', 'warn', 'warnings', 'purge', 'nick', 'roleadd', 'roleremove', 'lock', 'unlock', 'slowmode', 'announce', 'tempban', 'clearwarnings', 'unban', 'logs'];
-  if (moderationCommands.includes(commandName)) {
-    const matchOfficialsRole = guild.roles.cache.find(role => role.name === 'Match Officials');
-    if (!matchOfficialsRole || !member.roles.cache.has(matchOfficialsRole.id)) {
-      return interaction.reply({ content: 'You do not have the Match Officials role to use this command.', ephemeral: true });
-    }
-    // Additional validation: ensure executor is not trying to action on higher roles
-    if (['kick', 'ban', 'mute', 'unmute', 'tempban', 'unban'].includes(commandName)) {
-      const targetUser = interaction.options.getUser('user');
-      const targetMember = await guild.members.fetch(targetUser.id).catch(() => null);
-      if (targetMember && targetMember.roles.highest.position >= member.roles.highest.position) {
-        return interaction.reply({ content: 'You cannot perform actions on users with equal or higher roles.', ephemeral: true });
-      }
+  const cmdsRole = guild.roles.cache.find(role => role.name.toLowerCase() === 'cmds');
+  if (!cmdsRole || !member.roles.cache.has(cmdsRole.id)) {
+    return interaction.reply({ content: 'You need the cmds role to use this bot.', ephemeral: true });
+  }
+
+  if (['kick', 'ban', 'mute', 'unmute', 'tempban', 'unban', 'softban'].includes(commandName)) {
+    const targetUser = interaction.options.getUser('user');
+    const targetMember = await guild.members.fetch(targetUser.id).catch(() => null);
+    if (targetMember && targetMember.roles.highest.position >= member.roles.highest.position) {
+      return interaction.reply({ content: 'You cannot perform actions on users with equal or higher roles.', ephemeral: true });
     }
   }
 
@@ -593,193 +510,6 @@ client.on('interactionCreate', async interaction => {
         }
         break;
 
-      case 'ping':
-        const ping = Date.now() - interaction.createdTimestamp;
-        await interaction.reply({ content: `Pong! Latency: ${ping}ms`, ephemeral: true });
-        const botLogsChannelPing = await getBotLogsChannel(guild);
-        if (botLogsChannelPing) {
-          await botLogsChannelPing.send(`**Ping Command Used**\nUser: ${interaction.user.tag}\nLatency: ${ping}ms\nTimestamp: ${new Date().toISOString()}`);
-        }
-        break;
-
-      case 'uptime':
-        const uptime = Date.now() - startTime;
-        const uptimeString = `${Math.floor(uptime / 86400000)}d ${Math.floor(uptime / 3600000) % 24}h ${Math.floor(uptime / 60000) % 60}m ${Math.floor(uptime / 1000) % 60}s`;
-        await interaction.reply({ content: `Uptime: ${uptimeString}`, ephemeral: true });
-        const botLogsChannelUptime = await getBotLogsChannel(guild);
-        if (botLogsChannelUptime) {
-          await botLogsChannelUptime.send(`**Uptime Command Used**\nUser: ${interaction.user.tag}\nUptime: ${uptimeString}\nTimestamp: ${new Date().toISOString()}`);
-        }
-        break;
-
-      case 'botinfo':
-        const botEmbed = new EmbedBuilder()
-          .setTitle('Bot Info')
-          .addFields(
-            { name: 'Version', value: '1.0.0', inline: true },
-            { name: 'Total Commands', value: commands.length.toString(), inline: true },
-            { name: 'Uptime', value: `${Math.floor((Date.now() - startTime) / 1000)}s`, inline: true }
-          )
-          .setColor(0x00ff00);
-        await interaction.reply({ embeds: [botEmbed], ephemeral: true });
-        const botLogsChannelBotinfo = await getBotLogsChannel(guild);
-        if (botLogsChannelBotinfo) {
-          await botLogsChannelBotinfo.send(`**Botinfo Command Used**\nUser: ${interaction.user.tag}\nTimestamp: ${new Date().toISOString()}`);
-        }
-        break;
-
-      case 'serverinfo':
-        const serverEmbed = new EmbedBuilder()
-          .setTitle(guild.name)
-          .addFields(
-            { name: 'Members', value: guild.memberCount.toString(), inline: true },
-            { name: 'Roles', value: guild.roles.cache.size.toString(), inline: true },
-            { name: 'Channels', value: guild.channels.cache.size.toString(), inline: true }
-          )
-          .setColor(0x0000ff);
-        await interaction.reply({ embeds: [serverEmbed], ephemeral: true });
-        const botLogsChannelServerinfo = await getBotLogsChannel(guild);
-        if (botLogsChannelServerinfo) {
-          await botLogsChannelServerinfo.send(`**Serverinfo Command Used**\nUser: ${interaction.user.tag}\nTimestamp: ${new Date().toISOString()}`);
-        }
-        break;
-
-      case 'userinfo':
-        const userInfoUser = interaction.options.getUser('user') || interaction.user;
-        const userInfoMember = await guild.members.fetch(userInfoUser.id);
-        const userEmbed = new EmbedBuilder()
-          .setTitle(userInfoUser.tag)
-          .addFields(
-            { name: 'ID', value: userInfoUser.id, inline: true },
-            { name: 'Joined', value: userInfoMember.joinedAt.toDateString(), inline: true },
-            { name: 'Roles', value: userInfoMember.roles.cache.map(r => r.name).join(', ') || 'None', inline: false }
-          )
-          .setThumbnail(userInfoUser.displayAvatarURL())
-          .setColor(0xffff00);
-        await interaction.reply({ embeds: [userEmbed], ephemeral: true });
-        const botLogsChannelUserinfo = await getBotLogsChannel(guild);
-        if (botLogsChannelUserinfo) {
-          await botLogsChannelUserinfo.send(`**Userinfo Command Used**\nUser: ${interaction.user.tag}\nTarget: ${userInfoUser.tag}\nTimestamp: ${new Date().toISOString()}`);
-        }
-        break;
-
-      case 'roles':
-        const rolesUser = interaction.options.getUser('user') || interaction.user;
-        const rolesMember = await guild.members.fetch(rolesUser.id);
-        const rolesList = rolesMember.roles.cache.map(r => r.name).join(', ') || 'None';
-        await interaction.reply({ content: `${rolesUser.tag}'s roles: ${rolesList}`, ephemeral: true });
-        const botLogsChannelRoles = await getBotLogsChannel(guild);
-        if (botLogsChannelRoles) {
-          await botLogsChannelRoles.send(`**Roles Command Used**\nUser: ${interaction.user.tag}\nTarget: ${rolesUser.tag}\nTimestamp: ${new Date().toISOString()}`);
-        }
-        break;
-
-      case 'avatar':
-        const avatarUser = interaction.options.getUser('user') || interaction.user;
-        const avatarEmbed = new EmbedBuilder()
-          .setTitle(`${avatarUser.tag}'s Avatar`)
-          .setImage(avatarUser.displayAvatarURL({ size: 1024 }))
-          .setColor(0xff00ff);
-        await interaction.reply({ embeds: [avatarEmbed], ephemeral: true });
-        const botLogsChannelAvatar = await getBotLogsChannel(guild);
-        if (botLogsChannelAvatar) {
-          await botLogsChannelAvatar.send(`**Avatar Command Used**\nUser: ${interaction.user.tag}\nTarget: ${avatarUser.tag}\nTimestamp: ${new Date().toISOString()}`);
-        }
-        break;
-
-      case 'channelinfo':
-        const channelInfoChannel = interaction.options.getChannel('channel') || interaction.channel;
-        const channelEmbed = new EmbedBuilder()
-          .setTitle(channelInfoChannel.name)
-          .addFields(
-            { name: 'ID', value: channelInfoChannel.id, inline: true },
-            { name: 'Type', value: channelInfoChannel.type, inline: true },
-            { name: 'Created', value: channelInfoChannel.createdAt.toDateString(), inline: true }
-          )
-          .setColor(0x00ffff);
-        await interaction.reply({ embeds: [channelEmbed], ephemeral: true });
-        const botLogsChannelChannelinfo = await getBotLogsChannel(guild);
-        if (botLogsChannelChannelinfo) {
-          await botLogsChannelChannelinfo.send(`**Channelinfo Command Used**\nUser: ${interaction.user.tag}\nChannel: ${channelInfoChannel.name}\nTimestamp: ${new Date().toISOString()}`);
-        }
-        break;
-
-      case 'invite':
-        const inviteLink = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&permissions=8&scope=bot%20applications.commands`;
-        await interaction.reply({ content: `Invite link: ${inviteLink}`, ephemeral: true });
-        const botLogsChannelInvite = await getBotLogsChannel(guild);
-        if (botLogsChannelInvite) {
-          await botLogsChannelInvite.send(`**Invite Command Used**\nUser: ${interaction.user.tag}\nTimestamp: ${new Date().toISOString()}`);
-        }
-        break;
-
-      case 'randommember':
-        const members = await guild.members.fetch();
-        const randomMember = members.random();
-        await interaction.reply({ content: `Random member: ${randomMember.user.tag}`, ephemeral: true });
-        const botLogsChannelRandommember = await getBotLogsChannel(guild);
-        if (botLogsChannelRandommember) {
-          await botLogsChannelRandommember.send(`**Randommember Command Used**\nUser: ${interaction.user.tag}\nSelected: ${randomMember.user.tag}\nTimestamp: ${new Date().toISOString()}`);
-        }
-        break;
-
-      case 'countroles':
-        const roleCounts = guild.roles.cache.map(role => `${role.name}: ${role.members.size}`);
-        await interaction.reply({ content: `Role counts:\n${roleCounts.join('\n')}`, ephemeral: true });
-        const botLogsChannelCountroles = await getBotLogsChannel(guild);
-        if (botLogsChannelCountroles) {
-          await botLogsChannelCountroles.send(`**Countroles Command Used**\nUser: ${interaction.user.tag}\nTimestamp: ${new Date().toISOString()}`);
-        }
-        break;
-
-      case 'vote':
-        const question = interaction.options.getString('question');
-        const options = interaction.options.getString('options').split(',');
-        const voteEmbed = new EmbedBuilder()
-          .setTitle(question)
-          .setDescription(options.map((opt, i) => `${i+1}. ${opt.trim()}`).join('\n'))
-          .setColor(0x00ff00);
-        const row = new ActionRowBuilder()
-          .addComponents(
-            options.slice(0, 5).map((_, i) => new ButtonBuilder()
-              .setCustomId(`vote_${i}`)
-              .setLabel(`${i+1}`)
-              .setStyle(ButtonStyle.Primary)
-            )
-          );
-        await interaction.reply({ embeds: [voteEmbed], components: [row], ephemeral: true });
-        const botLogsChannelVote = await getBotLogsChannel(guild);
-        if (botLogsChannelVote) {
-          await botLogsChannelVote.send(`**Vote Command Used**\nUser: ${interaction.user.tag}\nQuestion: ${question}\nOptions: ${options.join(', ')}\nTimestamp: ${new Date().toISOString()}`);
-        }
-        break;
-
-      case 'say':
-        const sayMessage = interaction.options.getString('message');
-        await interaction.reply({ content: sayMessage, ephemeral: true });
-        const botLogsChannelSay = await getBotLogsChannel(guild);
-        if (botLogsChannelSay) {
-          await botLogsChannelSay.send(`**Say Command Used**\nUser: ${interaction.user.tag}\nMessage: ${sayMessage}\nTimestamp: ${new Date().toISOString()}`);
-        }
-        break;
-
-      case 'serverbanner':
-        const bannerURL = guild.bannerURL();
-        if (bannerURL) {
-          const bannerEmbed = new EmbedBuilder()
-            .setTitle('Server Banner')
-            .setImage(bannerURL)
-            .setColor(0xffa500);
-          await interaction.reply({ embeds: [bannerEmbed], ephemeral: true });
-        } else {
-          await interaction.reply({ content: 'No server banner set.', ephemeral: true });
-        }
-        const botLogsChannelServerbanner = await getBotLogsChannel(guild);
-        if (botLogsChannelServerbanner) {
-          await botLogsChannelServerbanner.send(`**Serverbanner Command Used**\nUser: ${interaction.user.tag}\nTimestamp: ${new Date().toISOString()}`);
-        }
-        break;
-
       case 'tempban':
         const tempbanUser = interaction.options.getUser('user');
         const tempbanHours = interaction.options.getInteger('hours');
@@ -811,52 +541,6 @@ client.on('interactionCreate', async interaction => {
         if (botLogsChannelClearwarnings) {
           await botLogsChannelClearwarnings.send(`**Clearwarnings Command Used**\nUser: ${interaction.user.tag}\nTarget: ${clearUser.tag}\nCleared Warnings: ${clearedCount}\nTimestamp: ${new Date().toISOString()}`);
         }
-        break;
-
-      case 'report':
-        const reportUser = interaction.options.getUser('user');
-        const reportReason = interaction.options.getString('reason');
-        const botReportsChannel = guild.channels.cache.find(channel => channel.name === 'bot-reports');
-        if (!botReportsChannel) {
-          return interaction.reply({ content: 'bot-reports channel not found. Please create a channel named "bot-reports".', ephemeral: true });
-        }
-        const reportEmbed = new EmbedBuilder()
-          .setTitle('User Report')
-          .addFields(
-            { name: 'Reporter', value: interaction.user.tag, inline: true },
-            { name: 'Reported User', value: reportUser.tag, inline: true },
-            { name: 'Reason', value: reportReason, inline: false },
-            { name: 'Timestamp', value: new Date().toISOString(), inline: false }
-          )
-          .setColor(0xff0000);
-        await botReportsChannel.send({ embeds: [reportEmbed] });
-        await interaction.reply({ content: 'Your report has been submitted to the moderators.', ephemeral: true });
-        break;
-
-      case 'trivia':
-        const triviaQuestions = [
-          { question: 'What is the capital of France?', answers: ['Paris'] },
-          { question: 'What is the largest planet in our solar system?', answers: ['Jupiter'] },
-          { question: 'Who wrote Romeo and Juliet?', answers: ['Shakespeare', 'William Shakespeare'] },
-          { question: 'What is the chemical symbol for gold?', answers: ['Au'] },
-          { question: 'In what year did the Titanic sink?', answers: ['1912'] },
-          { question: 'What is the smallest country in the world?', answers: ['Vatican City'] },
-          { question: 'How many continents are there?', answers: ['7'] },
-          { question: 'What is the fastest land animal?', answers: ['Cheetah'] },
-          { question: 'Who painted the Mona Lisa?', answers: ['Leonardo da Vinci'] },
-          { question: 'What is the highest mountain in the world?', answers: ['Mount Everest'] },
-          { question: 'How many sides does a hexagon have?', answers: ['6'] },
-          { question: 'What is the deepest ocean?', answers: ['Pacific Ocean'] },
-          { question: 'Who invented the telephone?', answers: ['Alexander Graham Bell'] },
-          { question: 'What is the chemical symbol for silver?', answers: ['Ag'] },
-          { question: 'In what country is the Great Wall located?', answers: ['China'] }
-        ];
-        const randomTrivia = triviaQuestions[Math.floor(Math.random() * triviaQuestions.length)];
-        const triviaEmbed = new EmbedBuilder()
-          .setTitle('Trivia Question')
-          .setDescription(randomTrivia.question)
-          .setColor(0x00ff00);
-        await interaction.reply({ embeds: [triviaEmbed] });
         break;
 
       case 'unban':
@@ -915,14 +599,12 @@ client.on('interactionCreate', async interaction => {
         helpCommandUsed.add(guild.id);
         
         const helpEmbed = new EmbedBuilder()
-          .setTitle('🔧 Racing Nation Bot - Commands List')
-          .setDescription('Complete list of all available commands')
+          .setTitle('🔧 Racing Nation Bot - Moderation Commands')
+          .setDescription('Available moderation commands for users with the cmds role.')
           .addFields(
-            { name: '🛡️ MODERATION (Match Officials role required)', value: '`/kick` - Remove user\n`/ban` - Ban user\n`/unban` - Unban user\n`/tempban` - Temp ban (hours)\n`/mute` - Timeout user\n`/unmute` - Remove timeout\n`/warn` - Warn user\n`/warnings` - Check warnings\n`/clearwarnings` - Clear all warnings\n`/purge` - Delete messages\n`/nick` - Change nickname\n`/roleadd` - Add role\n`/roleremove` - Remove role\n`/lock` - Lock channel\n`/unlock` - Unlock channel\n`/slowmode` - Set slowmode\n`/announce` - Send announcement\n`/logs` - View moderation logs\n`/softban` - Softban user\n`/infractions` - View user infractions\n`/raidmode` - Toggle raid mode', inline: false },
-            { name: '📊 INFO COMMANDS', value: '`/ping` - Bot latency\n`/uptime` - Bot uptime\n`/botinfo` - Bot statistics\n`/serverinfo` - Server info\n`/userinfo` - User details\n`/roles` - List user roles\n`/avatar` - Show user avatar\n`/channelinfo` - Channel details\n`/invite` - Bot invite link\n`/randommember` - Random member\n`/countroles` - Role counts\n`/vote` - Create poll\n`/say` - Bot repeats message\n`/serverbanner` - Server banner', inline: false },
-            { name: '📋 OTHER COMMANDS', value: '`/trivia` - Random trivia question\n`/report` - Report a user\n`/appeal` - Appeal your ban', inline: false }
+            { name: '🛡️ MODERATION', value: '`/kick` - Remove user\n`/ban` - Ban user\n`/unban` - Unban user\n`/tempban` - Temp ban (hours)\n`/mute` - Timeout user\n`/unmute` - Remove timeout\n`/warn` - Warn user\n`/warnings` - Check warnings\n`/clearwarnings` - Clear all warnings\n`/purge` - Delete messages\n`/nick` - Change nickname\n`/roleadd` - Add role\n`/roleremove` - Remove role\n`/lock` - Lock channel\n`/unlock` - Unlock channel\n`/slowmode` - Set slowmode\n`/announce` - Send announcement\n`/logs` - View moderation logs\n`/softban` - Softban user\n`/infractions` - View user infractions\n`/raidmode` - Toggle raid mode', inline: false }
           )
-          .setFooter({ text: 'React 👍 if this helps! | This command can only be used once per server.' })
+          .setFooter({ text: 'This command can only be used once per server.' })
           .setColor(0xff6600);
         
         const msg = await interaction.reply({ embeds: [helpEmbed] });
@@ -930,15 +612,6 @@ client.on('interactionCreate', async interaction => {
         break;
 
       case 'raidmode':
-        // Check for Match Officials role
-        const matchOfficialsRoleRaid = guild.roles.cache.find(r => r.name === 'Match Officials');
-        if (!matchOfficialsRoleRaid || !member.roles.cache.has(matchOfficialsRoleRaid.id)) {
-          // Also allow bot admins
-          if (!member.permissions.has(PermissionFlagsBits.Administrator)) {
-            return interaction.reply({ content: 'Only Match Officials or Server Admin can activate raid mode!', ephemeral: true });
-          }
-        }
-        
         const isRaidMode = raidMode.has(guild.id);
         if (isRaidMode) {
           raidMode.delete(guild.id);
@@ -1014,35 +687,6 @@ client.on('interactionCreate', async interaction => {
         infractionEmbed.setFooter({ text: `Total infractions: ${userInfractions.length}` });
         await interaction.reply({ embeds: [infractionEmbed], ephemeral: true });
         break;
-
-      case 'appeal':
-        const banStatus = await guild.bans.fetch(interaction.user.id).catch(() => null);
-        if (!banStatus) {
-          return interaction.reply({ content: 'You are not banned from this server.', ephemeral: true });
-        }
-        
-        if (appeals.has(interaction.user.id)) {
-          return interaction.reply({ content: 'You already have a pending appeal. Wait for mod response.', ephemeral: true });
-        }
-        
-        appeals.set(interaction.user.id, { user: interaction.user.tag, userId: interaction.user.id, date: new Date(), status: 'pending' });
-        
-        const modsChannel = guild.channels.cache.find(c => c.name === 'bot-logs');
-        if (modsChannel) {
-          const appealEmbed = new EmbedBuilder()
-            .setTitle('🔔 Ban Appeal Submitted')
-            .addFields(
-              { name: 'User', value: interaction.user.tag, inline: true },
-              { name: 'Date', value: new Date().toDateString(), inline: true }
-            )
-            .setColor(0xffaa00);
-          await modsChannel.send({ embeds: [appealEmbed] });
-        }
-        
-        await interaction.reply({ content: '✅ Appeal submitted! Moderators will review it.', ephemeral: true });
-        break;
-
-
 
       default:
         await interaction.reply({ content: 'Unknown command.', ephemeral: true });
