@@ -319,7 +319,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Kicked ${kickUser.tag} for: ${kickReason}`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Kick Command Used**\nUser: ${interaction.user.tag}\nTarget: ${kickUser.tag}\nReason: ${kickReason}\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Kick Command Used**\nUser: ${interaction.user.tag}\nTarget: ${kickUser.tag}\nReason: ${kickReason}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -333,7 +338,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Banned ${banUser.tag} for: ${banReason}`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Ban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${banUser.tag}\nReason: ${banReason}\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Ban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${banUser.tag}\nReason: ${banReason}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -353,7 +363,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Muted ${muteUser.tag} for ${muteTime} minutes.`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Mute Command Used**\nUser: ${interaction.user.tag}\nTarget: ${muteUser.tag}\nDuration: ${muteTime} minutes\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Mute Command Used**\nUser: ${interaction.user.tag}\nTarget: ${muteUser.tag}\nDuration: ${muteTime} minutes`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -367,7 +382,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Unmuted ${unmuteUser.tag}.`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Unmute Command Used**\nUser: ${interaction.user.tag}\nTarget: ${unmuteUser.tag}\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Unmute Command Used**\nUser: ${interaction.user.tag}\nTarget: ${unmuteUser.tag}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -407,7 +427,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Warned ${warnUser.tag} for: ${warnReason} (Total warnings: ${warnCount})${autoAction}`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Warn Command Used**\nUser: ${interaction.user.tag}\nTarget: ${warnUser.tag}\nReason: ${warnReason}\nTotal Warnings: ${warnCount}${autoAction}\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Warn Command Used**\nUser: ${interaction.user.tag}\nTarget: ${warnUser.tag}\nReason: ${warnReason}\nTotal Warnings: ${warnCount}${autoAction}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -422,7 +447,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ embeds: [embed], ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Warnings Command Used**\nUser: ${interaction.user.tag}\nTarget: ${warningsUser.tag}\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Warnings Command Used**\nUser: ${interaction.user.tag}\nTarget: ${warningsUser.tag}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -433,7 +463,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Deleted ${amount} messages.`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Purge Command Used**\nUser: ${interaction.user.tag}\nChannel: ${interaction.channel.name}\nAmount: ${amount}\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Purge Command Used**\nUser: ${interaction.user.tag}\nChannel: ${interaction.channel.name}\nAmount: ${amount}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -446,7 +481,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Changed ${nickUser.tag}'s nickname to ${nickname}.`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Nick Command Used**\nUser: ${interaction.user.tag}\nTarget: ${nickUser.tag}\nNew Nickname: ${nickname}\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Nick Command Used**\nUser: ${interaction.user.tag}\nTarget: ${nickUser.tag}\nNew Nickname: ${nickname}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -459,7 +499,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Added role ${roleAdd.name} to ${roleAddUser.tag}.`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Roleadd Command Used**\nUser: ${interaction.user.tag}\nTarget: ${roleAddUser.tag}\nRole: ${roleAdd.name}\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Roleadd Command Used**\nUser: ${interaction.user.tag}\nTarget: ${roleAddUser.tag}\nRole: ${roleAdd.name}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -472,7 +517,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Removed role ${roleRemove.name} from ${roleRemoveUser.tag}.`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Roleremove Command Used**\nUser: ${interaction.user.tag}\nTarget: ${roleRemoveUser.tag}\nRole: ${roleRemove.name}\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Roleremove Command Used**\nUser: ${interaction.user.tag}\nTarget: ${roleRemoveUser.tag}\nRole: ${roleRemove.name}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -483,7 +533,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Locked ${lockChannel.name}.`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Lock Command Used**\nUser: ${interaction.user.tag}\nChannel: ${lockChannel.name}\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Lock Command Used**\nUser: ${interaction.user.tag}\nChannel: ${channel.name}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -494,7 +549,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Unlocked ${unlockChannel.name}.`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Unlock Command Used**\nUser: ${interaction.user.tag}\nChannel: ${unlockChannel.name}\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Unlock Command Used**\nUser: ${interaction.user.tag}\nChannel: ${channel.name}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -506,7 +566,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Set slowmode in ${slowChannel.name} to ${slowTime} seconds.`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Slowmode Command Used**\nUser: ${interaction.user.tag}\nChannel: ${slowChannel.name}\nTime: ${slowTime} seconds\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Slowmode Command Used**\nUser: ${interaction.user.tag}\nChannel: ${channel.name}\nDuration: ${duration} seconds`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -518,7 +583,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: 'Announcement sent.', ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Announce Command Used**\nUser: ${interaction.user.tag}\nChannel: ${announceChannel.name}\nMessage: ${announceMessage}\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Announce Command Used**\nUser: ${interaction.user.tag}\nChannel: ${channel.name}\nMessage: ${message}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -553,7 +623,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Cleared all ${clearedCount} warnings for ${clearUser.tag}.`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Clearwarnings Command Used**\nUser: ${interaction.user.tag}\nTarget: ${clearUser.tag}\nCleared Warnings: ${clearedCount}\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Clearwarnings Command Used**\nUser: ${interaction.user.tag}\nTarget: ${clearWarningsUser.tag}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -566,7 +641,12 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: `Unbanned ${unbanUser.tag}. Reason: ${unbanReason}`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
         if (botUseChannel) {
-          await botUseChannel.send(`**Unban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${unbanUser.tag}\nReason: ${unbanReason}\nTimestamp: ${new Date().toISOString()}`);
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Unban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${unbanUser.tag}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
         }
         break;
       }
@@ -644,7 +724,12 @@ client.on('interactionCreate', async interaction => {
           logModerationAction({ action: 'raidmode-disable', executor: interaction.user.tag, target: 'Guild', reason: 'Raid mode disabled' });
           const botUseChannel = await getBotUseChannel(guild);
           if (botUseChannel) {
-            await botUseChannel.send(`**Raidmode Disabled**\nUser: ${interaction.user.tag}\nTimestamp: ${new Date().toISOString()}`);
+            const embed = new EmbedBuilder()
+              .setTitle('Moderation Action')
+              .setDescription(`**Raidmode Disabled**\nUser: ${interaction.user.tag}`)
+              .setColor(0xff0000)
+              .setTimestamp();
+            await botUseChannel.send({ embeds: [embed] });
           }
         } else {
           raidMode.add(guild.id);
@@ -661,7 +746,12 @@ client.on('interactionCreate', async interaction => {
           logModerationAction({ action: 'raidmode-enable', executor: interaction.user.tag, target: 'Guild', reason: 'Raid mode activated' });
           const botUseChannel = await getBotUseChannel(guild);
           if (botUseChannel) {
-            await botUseChannel.send(`**Raidmode Enabled**\nUser: ${interaction.user.tag}\nTimestamp: ${new Date().toISOString()}`);
+            const embed = new EmbedBuilder()
+              .setTitle('Moderation Action')
+              .setDescription(`**Raidmode Enabled**\nUser: ${interaction.user.tag}`)
+              .setColor(0xff0000)
+              .setTimestamp();
+            await botUseChannel.send({ embeds: [embed] });
           }
         }
         break;
@@ -688,7 +778,12 @@ client.on('interactionCreate', async interaction => {
           await interaction.reply({ content: `✅ Softbanned ${softbanUser.tag} and deleted last 7 days of messages. Reason: ${softbanReason}`, ephemeral: true });
           const botUseChannel = await getBotUseChannel(guild);
           if (botUseChannel) {
-            await botUseChannel.send(`**Softban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${softbanUser.tag}\nReason: ${softbanReason}\nTimestamp: ${new Date().toISOString()}`);
+            const embed = new EmbedBuilder()
+              .setTitle('Moderation Action')
+              .setDescription(`**Softban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${softbanUser.tag}\nReason: ${softbanReason}`)
+              .setColor(0xff0000)
+              .setTimestamp();
+            await botUseChannel.send({ embeds: [embed] });
           }
         } catch (err) {
           await interaction.reply({ content: `❌ Failed to softban user: ${err.message}`, ephemeral: true });
