@@ -7,6 +7,8 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.MessageContent,
   ],
 });
 
@@ -35,10 +37,25 @@ const bannedContent = [
 
 // Function to get bot-use channel
 async function getBotUseChannel(guild) {
-  return guild.channels.cache.find(channel => channel.name === 'bot-use');
+  try {
+    let channel = guild.channels.cache.find(channel => channel.name === 'bot-use');
+    if (!channel) {
+      // Try to find alternative names
+      channel = guild.channels.cache.find(channel =>
+        channel.name.includes('bot') && channel.name.includes('use') ||
+        channel.name === 'mod-logs' ||
+        channel.name === 'moderation' ||
+        channel.name === 'logs'
+      );
+    }
+    return channel;
+  } catch (error) {
+    console.error('Error finding bot-use channel:', error);
+    return null;
+  }
 }
 
-// Function to log moderation action
+// Function to log moderation actionthi
 function logModerationAction(action) {
   moderationLogs.push({
     ...action,
@@ -275,18 +292,24 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
+  console.log(`Bot is in ${client.guilds.cache.size} servers`);
 
   try {
-    console.log('Started refreshing application (/) commands.');
+    console.log('Started refreshing application (/) commands...');
+
+    const commandData = commands.map(cmd => cmd.toJSON());
+    console.log(`Registering ${commandData.length} commands...`);
 
     await rest.put(
       Routes.applicationCommands(CLIENT_ID),
-      { body: commands.map(cmd => cmd.toJSON()) },
+      { body: commandData },
     );
 
-    console.log('Successfully reloaded application (/) commands.');
+    console.log('✅ Successfully registered application (/) commands!');
+    console.log('Commands should appear in Discord within 1-2 minutes.');
   } catch (error) {
-    console.error(error);
+    console.error('❌ Failed to register commands:', error);
+    console.error('Make sure the bot has the "applications.commands" scope and proper permissions.');
   }
 });
 
@@ -391,6 +414,8 @@ client.on('interactionCreate', async interaction => {
             .setColor(0xff0000)
             .setTimestamp();
           await botUseChannel.send({ embeds: [embed] });
+        } else {
+          console.log(`Warning: Could not find bot-use channel in guild ${guild.name}`);
         }
         break;
       }
@@ -403,13 +428,15 @@ client.on('interactionCreate', async interaction => {
         logModerationAction({ action: 'ban', executor: interaction.user.tag, target: banUser.tag, reason: banReason });
         await interaction.reply({ content: `Banned ${banUser.tag} for: ${banReason}`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
-        if (botUseChannel) {
+        if (botUseChannel && botUseChannel.permissionsFor(guild.members.me).has('SendMessages')) {
           const embed = new EmbedBuilder()
             .setTitle('Moderation Action')
             .setDescription(`**Ban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${banUser.tag}\nReason: ${banReason}`)
             .setColor(0xff0000)
             .setTimestamp();
           await botUseChannel.send({ embeds: [embed] });
+        } else {
+          console.log(`Warning: Could not find bot-use channel or missing permissions in guild ${guild.name}`);
         }
         break;
       }
