@@ -43,6 +43,7 @@ function initializeTicketCounter(guild) {
   });
   
   ticketCounter = Math.max(...numbers);
+  console.log(`Initialized ticket counter for ${guild.name} to ${ticketCounter}`);
 }
 
 // Content filter
@@ -448,20 +449,32 @@ client.on('interactionCreate', async interaction => {
       case 'ban': {
         const banUser = interaction.options.getUser('user');
         const banReason = interaction.options.getString('reason') || 'No reason provided';
-        await guild.members.ban(banUser, { reason: banReason });
-        await sendModerationDM(banUser, 'You have been banned', banReason);
-        logModerationAction({ action: 'ban', executor: interaction.user.tag, target: banUser.tag, reason: banReason });
-        await interaction.reply({ content: `Banned ${banUser.tag} for: ${banReason}`, ephemeral: true });
-        const botUseChannel = await getBotUseChannel(guild);
-        if (botUseChannel && botUseChannel.permissionsFor(guild.members.me).has('SendMessages')) {
-          const embed = new EmbedBuilder()
-            .setTitle('Moderation Action')
-            .setDescription(`**Ban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${banUser.tag}\nReason: ${banReason}`)
-            .setColor(0xff0000)
-            .setTimestamp();
-          await botUseChannel.send({ embeds: [embed] });
-        } else {
-          console.log(`Warning: Could not find bot-use channel or missing permissions in guild ${guild.name}`);
+        
+        // Check if bot has ban permissions
+        if (!guild.members.me.permissions.has('BanMembers')) {
+          return interaction.reply({ content: '❌ I don\'t have permission to ban members.', ephemeral: true });
+        }
+        
+        try {
+          await guild.members.ban(banUser, { reason: banReason });
+          await sendModerationDM(banUser, 'You have been banned', banReason);
+          logModerationAction({ action: 'ban', executor: interaction.user.tag, target: banUser.tag, reason: banReason });
+          await interaction.reply({ content: `Banned ${banUser.tag} for: ${banReason}`, ephemeral: true });
+          
+          const botUseChannel = await getBotUseChannel(guild);
+          if (botUseChannel && botUseChannel.permissionsFor(guild.members.me).has('SendMessages')) {
+            const embed = new EmbedBuilder()
+              .setTitle('Moderation Action')
+              .setDescription(`**Ban Command Used**\nUser: ${interaction.user.tag}\nTarget: ${banUser.tag}\nReason: ${banReason}`)
+              .setColor(0xff0000)
+              .setTimestamp();
+            await botUseChannel.send({ embeds: [embed] });
+          } else {
+            console.log(`Warning: Could not find bot-use channel or missing permissions in guild ${guild.name}`);
+          }
+        } catch (error) {
+          console.error('Ban error:', error);
+          await interaction.reply({ content: `❌ Failed to ban user: ${error.message}`, ephemeral: true });
         }
         break;
       }
@@ -1108,6 +1121,7 @@ client.on('interactionCreate', async interaction => {
 
       case 'ticket': {
         const title = interaction.options.getString('title');
+        console.log(`Creating ticket with title: ${title}`);
         
         // Find the next available ticket number
         let ticketNumber = ticketCounter + 1;
@@ -1120,6 +1134,7 @@ client.on('interactionCreate', async interaction => {
         }
         
         ticketCounter = ticketNumber;
+        console.log(`Creating ticket channel: ${channelName} (number: ${ticketNumber})`);
 
         try {
           // Get the cmds role
@@ -1151,6 +1166,8 @@ client.on('interactionCreate', async interaction => {
               },
             ],
           });
+          
+          console.log(`Successfully created ticket channel: ${ticketChannel.name}`);
 
           // Create claim button
           const claimButton = new ActionRowBuilder()
