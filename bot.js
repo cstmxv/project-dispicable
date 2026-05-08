@@ -29,13 +29,21 @@ const client = new Client({
   ],
 });
 
-// Data storage
-let startTime = Date.now();
-const warnings = new Map();
-const moderationLogs = [];
-let ticketCounter = 0;
-const raidMode = new Set();
-const helpCommandUsed = new Set();
+// Initialize ticket counter based on existing channels
+function initializeTicketCounter(guild) {
+  const ticketChannels = guild.channels.cache.filter(ch => ch.name.startsWith('ticket-'));
+  if (ticketChannels.size === 0) {
+    ticketCounter = 0;
+    return;
+  }
+  
+  const numbers = ticketChannels.map(ch => {
+    const match = ch.name.match(/^ticket-(\d+)$/);
+    return match ? parseInt(match[1]) : 0;
+  });
+  
+  ticketCounter = Math.max(...numbers);
+}
 
 // Content filter
 const bannedContent = [
@@ -299,6 +307,12 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
   console.log(`Bot is in ${client.guilds.cache.size} servers`);
+
+  // Initialize ticket counter for each guild
+  for (const [, guild] of client.guilds.cache) {
+    initializeTicketCounter(guild);
+  }
+  console.log(`Initialized ticket counter to ${ticketCounter}`);
 
   try {
     console.log('Started refreshing application (/) commands...');
@@ -1094,9 +1108,18 @@ client.on('interactionCreate', async interaction => {
 
       case 'ticket': {
         const title = interaction.options.getString('title');
-        ticketCounter++;
-        const ticketNumber = ticketCounter;
-        const channelName = `ticket-${ticketNumber}`;
+        
+        // Find the next available ticket number
+        let ticketNumber = ticketCounter + 1;
+        let channelName = `ticket-${ticketNumber}`;
+        
+        // Make sure the channel name is unique
+        while (guild.channels.cache.some(ch => ch.name === channelName)) {
+          ticketNumber++;
+          channelName = `ticket-${ticketNumber}`;
+        }
+        
+        ticketCounter = ticketNumber;
 
         try {
           // Get the cmds role
