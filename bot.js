@@ -1,85 +1,83 @@
-const http = require('http');
-http.createServer((req, res) => res.end('Bot is running!')).listen(process.env.PORT || 8080);
 require('dotenv').config();
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const http = require('http');
 
+// Validate environment variables
+const TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = '1449775322580123648';
+const GUILD_ID = '1497925433251856484';
+
+if (!TOKEN) {
+  console.error('❌ DISCORD_TOKEN not found in .env file');
+  process.exit(1);
+}
+
+// HTTP server for Render
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Bot is running');
+}).listen(process.env.PORT || 8080, () => {
+  console.log(`📡 HTTP server listening on port ${process.env.PORT || 8080}`);
+});
+
+// Initialize Discord client
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.DirectMessages,
   ],
 });
 
-const TOKEN = process.env.DISCORD_TOKEN;
-const CLIENT_ID = '1449775322580123648';
-const GUILD_ID = '1497925433251856484';
-
+// Data storage
 let startTime = Date.now();
-const warnings = new Map(); // In-memory storage for warnings
-const moderationLogs = []; // Store all moderation actions
-const helpCommandUsed = new Set(); // Track which guilds have used help command
-const guildMemberCounts = new Map(); // Track member milestones
-const raidMode = new Set(); // Guilds in raid mode
-const bannedContent = [
-  // Racial slurs and hate speech (filtered list)
-  /n[i1]gg[a3]r|n[i1]gg[a3]h|n[i1]gg3r/gi,
-  /f[a4]gg[o0]t|f[a4]gg1t/gi,
-  /wh[i1]tey|cracker|honk[e3]y/gi,
-  /sand n|towel head|camel jockey/gi,
-  // NSFW keywords
-  /\bp[o0rn]|xxx|sex tape|nudes|horny|onlyfans/gi,
-  /b[o0]obs|ass|tits|c[o0]ck|pussy/gi
-];
+const warnings = new Map();
+const moderationLogs = [];
+let ticketCounter = 0;
 
-
-
-// Function to get bot-use channel
+// Utility function to get bot-use channel
 async function getBotUseChannel(guild) {
   try {
-    let channel = guild.channels.cache.find(channel => channel.name === 'bot-use');
-    if (!channel) {
-      // Try to find alternative names
-      channel = guild.channels.cache.find(channel =>
-        channel.name.includes('bot') && channel.name.includes('use') ||
-        channel.name === 'mod-logs' ||
-        channel.name === 'moderation' ||
-        channel.name === 'logs'
-      );
-    }
-    return channel;
+    const channels = guild.channels.cache;
+    return channels.find(ch => ch.name === 'bot-use' && ch.isTextBased()) ||
+           channels.find(ch => ch.name === 'mod-logs' && ch.isTextBased()) ||
+           channels.find(ch => ch.name === 'moderation' && ch.isTextBased()) ||
+           channels.find(ch => ch.name === 'logs' && ch.isTextBased()) ||
+           null;
   } catch (error) {
     console.error('Error finding bot-use channel:', error);
     return null;
   }
 }
 
-// Function to log moderation actionthi
-function logModerationAction(action) {
+// Utility function to send moderation DM
+async function sendModerationDM(user, title, reason, duration = null) {
+  try {
+    const embed = new EmbedBuilder()
+      .setTitle(title)
+      .setColor(0xFF0000)
+      .addFields({ name: 'Reason', value: reason || 'No reason provided' });
+    if (duration) embed.addFields({ name: 'Duration', value: duration });
+    await user.send({ embeds: [embed] }).catch(() => null);
+  } catch (error) {
+    console.log(`Could not DM ${user.tag}`);
+  }
+}
+
+// Log moderation action
+function logAction(action, executor, target, reason = '', extra = {}) {
   moderationLogs.push({
-    ...action,
-    timestamp: new Date()
+    action,
+    executor,
+    target,
+    reason,
+    timestamp: new Date(),
+    ...extra
   });
 }
 
-// Function to send DM to user
-async function sendModerationDM(user, title, reason, duration = null) {
-  try {
-    const dmEmbed = new EmbedBuilder()
-      .setTitle(title)
-      .addFields(
-        { name: 'Reason', value: reason || 'No reason provided', inline: false }
-      );
-    if (duration) {
-      dmEmbed.addFields({ name: 'Duration', value: duration, inline: false });
-    }
-    dmEmbed.setColor(0xff0000);
-    await user.send({ embeds: [dmEmbed] });
-  } catch (error) {
-    console.log(`Could not DM ${user.tag}: ${error.message}`);
-  }
-}
 
 const commands = [
   // Moderation Commands
@@ -286,6 +284,12 @@ const commands = [
   new SlashCommandBuilder()
     .setName('help')
     .setDescription('Display all available moderation commands for cmds role.'),
+
+  // Ticket System
+  new SlashCommandBuilder()
+    .setName('ticket')
+    .setDescription('Create a support ticket.')
+    .addStringOption(option => option.setName('title').setDescription('Ticket title').setRequired(true)),
 ];
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -1081,12 +1085,128 @@ client.on('interactionCreate', async interaction => {
         }
         break;
 
+      case 'ticket': {
+        const title = interaction.options.getString('title');
+        ticketCounter++;
+        const ticketNumber = ticketCounter;
+        const channelName = `ticket-${ticketNumber}`;
+
+        try {
+          // Get the cmds role
+          const cmdsRole = guild.roles.cache.find(r => r.name.toLowerCase() === 'cmds');
+          if (!cmdsRole) {
+            return interaction.reply({ content: '❌ "cmds" role not found. Please create it first.', ephemeral: true });
+          }
+
+          // Create the ticket channel
+          const ticketChannel = await guild.channels.create({
+            name: channelName,
+            type: 0, // Text channel
+            permissionOverwrites: [
+              {
+                id: guild.id, // @everyone
+                deny: ['ViewChannel'],
+              },
+              {
+                id: interaction.user.id, // Ticket creator
+                allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'],
+              },
+              {
+                id: cmdsRole.id, // cmds role
+                allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'],
+              },
+              {
+                id: client.user.id, // Bot
+                allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'],
+              },
+            ],
+          });
+
+          // Create claim button
+          const claimButton = new ActionRowBuilder()
+            .addComponents(
+              new ButtonBuilder()
+                .setCustomId(`claim_ticket_${ticketNumber}`)
+                .setLabel('Claim Ticket')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('🎫')
+            );
+
+          // Send initial message in ticket channel
+          const ticketEmbed = new EmbedBuilder()
+            .setTitle(`🎫 Ticket #${ticketNumber}`)
+            .setDescription(`**Title:** ${title}\n**Created by:** ${interaction.user.tag}\n**Status:** Open`)
+            .setColor(0x00FF00)
+            .setTimestamp();
+
+          await ticketChannel.send({
+            content: `${interaction.user} created this ticket.`,
+            embeds: [ticketEmbed],
+            components: [claimButton]
+          });
+
+          await interaction.reply({ content: `✅ Ticket created! Check ${ticketChannel}`, ephemeral: true });
+
+          // Log to bot-use channel
+          const botUseChannel = await getBotUseChannel(guild);
+          if (botUseChannel) {
+            const logEmbed = new EmbedBuilder()
+              .setTitle('🎫 New Ticket Created')
+              .setDescription(`**Ticket:** #${ticketNumber}\n**Title:** ${title}\n**Created by:** ${interaction.user.tag}\n**Channel:** ${ticketChannel}`)
+              .setColor(0x00FF00)
+              .setTimestamp();
+            await botUseChannel.send({ embeds: [logEmbed] }).catch(() => null);
+          }
+
+        } catch (error) {
+          console.error('Error creating ticket:', error);
+          await interaction.reply({ content: '❌ Failed to create ticket.', ephemeral: true });
+        }
+        break;
+      }
+
       default:
         await interaction.reply({ content: 'Unknown command.', ephemeral: true });
     }
   } catch (error) {
     console.error(error);
     await interaction.reply({ content: 'There was an error executing this command.', ephemeral: true });
+  }
+});
+
+client.on('interactionCreate', async interaction => {
+  if (!interaction.isButton()) return;
+
+  const { customId, guild, member, user } = interaction;
+
+  if (customId.startsWith('claim_ticket_')) {
+    const ticketNumber = customId.split('_')[2];
+
+    // Check if user has cmds role
+    const cmdsRole = guild.roles.cache.find(r => r.name.toLowerCase() === 'cmds');
+    if (!cmdsRole || !member.roles.cache.has(cmdsRole.id)) {
+      return interaction.reply({ content: '❌ You need the cmds role to claim tickets.', ephemeral: true });
+    }
+
+    try {
+      // Delete the ticket channel
+      await interaction.channel.delete();
+
+      // Log to bot-use channel
+      const botUseChannel = await getBotUseChannel(guild);
+      if (botUseChannel) {
+        const logEmbed = new EmbedBuilder()
+          .setTitle('✅ Ticket Closed')
+          .setDescription(`**Ticket:** #${ticketNumber}\n**Closed by:** ${user.tag}`)
+          .setColor(0xFF0000)
+          .setTimestamp();
+        await botUseChannel.send({ embeds: [logEmbed] }).catch(() => null);
+      }
+
+    } catch (error) {
+      console.error('Error closing ticket:', error);
+      await interaction.reply({ content: '❌ Failed to close ticket.', ephemeral: true });
+    }
   }
 });
 
