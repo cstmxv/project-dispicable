@@ -34,6 +34,14 @@ let startTime = Date.now();
 const warnings = new Map();
 const moderationLogs = [];
 let ticketCounter = 0;
+const raidMode = new Set();
+const helpCommandUsed = new Set();
+
+// Content filter
+const bannedContent = [
+  /nig/i, /fagg/i, /sand/i, /porn/i, /xxx/i, /nud/i, /horny/i,
+  /nigger/i, /faggot/i, /sandnigger/i
+];
 
 // Utility function to get bot-use channel
 async function getBotUseChannel(guild) {
@@ -65,14 +73,10 @@ async function sendModerationDM(user, title, reason, duration = null) {
 }
 
 // Log moderation action
-function logAction(action, executor, target, reason = '', extra = {}) {
+function logModerationAction(action) {
   moderationLogs.push({
-    action,
-    executor,
-    target,
-    reason,
-    timestamp: new Date(),
-    ...extra
+    ...action,
+    timestamp: new Date()
   });
 }
 
@@ -303,7 +307,7 @@ client.once('ready', async () => {
     console.log(`Registering ${commandData.length} commands...`);
 
     await rest.put(
-      Routes.applicationCommands(CLIENT_ID),
+      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
       { body: commandData },
     );
 
@@ -385,9 +389,14 @@ client.on('interactionCreate', async interaction => {
   const member = interaction.member;
   const guild = interaction.guild;
 
-  const cmdsRole = guild.roles.cache.find(role => role.name.toLowerCase() === 'cmds');
-  if (!cmdsRole || !member.roles.cache.has(cmdsRole.id)) {
-    return interaction.reply({ content: 'You need the cmds role to use this bot.', ephemeral: true });
+  // Commands that require cmds role
+  const moderationCommands = ['kick', 'ban', 'mute', 'unmute', 'warn', 'warnings', 'purge', 'nick', 'roleadd', 'roleremove', 'lock', 'unlock', 'slowmode', 'announce', 'tempban', 'clearwarnings', 'unban', 'logs', 'raidmode', 'softban', 'infractions'];
+
+  if (moderationCommands.includes(commandName)) {
+    const cmdsRole = guild.roles.cache.find(role => role.name.toLowerCase() === 'cmds');
+    if (!cmdsRole || !member.roles.cache.has(cmdsRole.id)) {
+      return interaction.reply({ content: 'You need the cmds role to use moderation commands.', ephemeral: true });
+    }
   }
 
   if (['kick', 'ban', 'mute', 'unmute', 'tempban', 'unban', 'softban'].includes(commandName)) {
