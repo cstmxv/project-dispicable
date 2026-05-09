@@ -405,20 +405,12 @@ client.on('interactionCreate', async interaction => {
   const guild = interaction.guild;
 
   // Commands that require cmds role
-  const moderationCommands = ['kick', 'ban', 'mute', 'unmute', 'warn', 'warnings', 'purge', 'nick', 'roleadd', 'roleremove', 'lock', 'unlock', 'slowmode', 'announce', 'tempban', 'clearwarnings', 'unban', 'logs', 'raidmode', 'softban', 'infractions'];
+  const moderationCommands = ['kick', 'mute', 'unmute', 'warn', 'warnings', 'purge', 'nick', 'roleadd', 'roleremove', 'lock', 'unlock', 'slowmode', 'announce', 'tempban', 'clearwarnings', 'unban', 'logs', 'raidmode', 'softban', 'infractions'];
 
   if (moderationCommands.includes(commandName)) {
     const cmdsRole = guild.roles.cache.find(role => role.name.toLowerCase() === 'cmds');
     if (!cmdsRole || !member.roles.cache.has(cmdsRole.id)) {
       return interaction.reply({ content: 'You need the cmds role to use moderation commands.', ephemeral: true });
-    }
-  }
-
-  if (['kick', 'ban', 'mute', 'unmute', 'tempban', 'unban', 'softban'].includes(commandName)) {
-    const targetUser = interaction.options.getUser('user');
-    const targetMember = await guild.members.fetch(targetUser.id).catch(() => null);
-    if (targetMember && targetMember.roles.highest.position >= member.roles.highest.position) {
-      return interaction.reply({ content: 'You cannot perform actions on users with equal or higher roles.', ephemeral: true });
     }
   }
 
@@ -455,11 +447,39 @@ client.on('interactionCreate', async interaction => {
           return interaction.reply({ content: '❌ I don\'t have permission to ban members.', ephemeral: true });
         }
         
+        // Check if user is trying to ban themselves
+        if (banUser.id === interaction.user.id) {
+          return interaction.reply({ content: '❌ You cannot ban yourself.', ephemeral: true });
+        }
+        
+        // Check if user is trying to ban the bot
+        if (banUser.id === client.user.id) {
+          return interaction.reply({ content: '❌ You cannot ban me.', ephemeral: true });
+        }
+        
+        // Check if user is trying to ban the server owner
+        if (banUser.id === guild.ownerId) {
+          return interaction.reply({ content: '❌ You cannot ban the server owner.', ephemeral: true });
+        }
+        
         try {
+          // Try to fetch the member (they might not be in the server)
+          const targetMember = await guild.members.fetch(banUser.id).catch(() => null);
+          
+          // If they're in the server, check role hierarchy
+          if (targetMember) {
+            if (targetMember.roles.highest.position >= guild.members.me.roles.highest.position) {
+              return interaction.reply({ content: '❌ I cannot ban this user due to role hierarchy.', ephemeral: true });
+            }
+            if (targetMember.roles.highest.position >= member.roles.highest.position) {
+              return interaction.reply({ content: '❌ You cannot ban users with equal or higher roles than you.', ephemeral: true });
+            }
+          }
+          
           await guild.members.ban(banUser, { reason: banReason });
           await sendModerationDM(banUser, 'You have been banned', banReason);
           logModerationAction({ action: 'ban', executor: interaction.user.tag, target: banUser.tag, reason: banReason });
-          await interaction.reply({ content: `Banned ${banUser.tag} for: ${banReason}`, ephemeral: true });
+          await interaction.reply({ content: `✅ Banned ${banUser.tag} for: ${banReason}`, ephemeral: true });
           
           const botUseChannel = await getBotUseChannel(guild);
           if (botUseChannel && botUseChannel.permissionsFor(guild.members.me).has('SendMessages')) {
@@ -474,7 +494,20 @@ client.on('interactionCreate', async interaction => {
           }
         } catch (error) {
           console.error('Ban error:', error);
-          await interaction.reply({ content: `❌ Failed to ban user: ${error.message}`, ephemeral: true });
+          
+          // Provide specific error messages based on the error
+          let errorMessage = '❌ Failed to ban user.';
+          if (error.code === 50013) {
+            errorMessage = '❌ I don\'t have permission to ban this user.';
+          } else if (error.code === 50035) {
+            errorMessage = '❌ Invalid ban reason.';
+          } else if (error.message.includes('Missing Permissions')) {
+            errorMessage = '❌ Missing permissions to ban this user.';
+          } else {
+            errorMessage = `❌ Failed to ban user: ${error.message}`;
+          }
+          
+          await interaction.reply({ content: errorMessage, ephemeral: true });
         }
         break;
       }
