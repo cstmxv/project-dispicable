@@ -52,6 +52,14 @@ const bannedContent = [
   /nigger/i, /faggot/i, /sandnigger/i
 ];
 
+// Runtime data storage
+let startTime = Date.now();
+const warnings = new Map();
+const moderationLogs = [];
+let ticketCounter = 0;
+const raidMode = new Set();
+const helpCommandUsed = new Set();
+
 // Utility function to get bot-use channel
 async function getBotUseChannel(guild) {
   try {
