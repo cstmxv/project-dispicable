@@ -12,7 +12,7 @@ if (!TOKEN) {
   process.exit(1);
 }
 
-// HTTP server for Render
+// HTTP server for Render / healthcheck
 http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('Bot is running');
@@ -345,6 +345,16 @@ client.once('ready', async () => {
 // Message content filter
 client.on('messageCreate', async message => {
   if (message.author.bot || !message.guild) return;
+  
+  // Auto-delete messages in the `verify` channel immediately
+  try {
+    if (message.channel && message.channel.name === 'verify' && !message.author.bot) {
+      await message.delete();
+      return;
+    }
+  } catch (err) {
+    console.error(`Could not auto-delete message in verify channel: ${err}`);
+  }
   
   let foundBanned = false;
   let bannedType = '';
