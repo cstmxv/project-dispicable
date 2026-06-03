@@ -344,17 +344,29 @@ client.once('ready', async () => {
 
 // Message content filter
 client.on('messageCreate', async message => {
-  if (message.author.bot || !message.guild) return;
+  if (!message.guild) return;
   
-  // Auto-delete messages in the `verify` channel immediately
-  try {
-    if (message.channel && message.channel.name === 'verify' && !message.author.bot) {
-      await message.delete();
-      return;
+  // Auto-delete messages in the `verify` channel
+  if (message.channel && message.channel.name === 'verify') {
+    try {
+      if (message.author.bot) {
+        setTimeout(async () => {
+          try {
+            await message.delete();
+          } catch (err) {
+            console.error(`Could not delete bot message in verify channel: ${err}`);
+          }
+        }, 4000);
+      } else {
+        await message.delete();
+      }
+    } catch (err) {
+      console.error(`Could not auto-delete message in verify channel: ${err}`);
     }
-  } catch (err) {
-    console.error(`Could not auto-delete message in verify channel: ${err}`);
+    return;
   }
+  
+  if (message.author.bot) return;
   
   let foundBanned = false;
   let bannedType = '';
