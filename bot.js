@@ -351,6 +351,16 @@ client.on('messageCreate', async message => {
     return;
   }
 
+  // Auto-delete Bloxlink messages in general channel
+  if (message.channel.name === 'general' && message.author.id === '365975655037009931') {
+    try {
+      await message.delete();
+    } catch (err) {
+      console.error(`Could not delete Bloxlink message in general channel: ${err}`);
+    }
+    return;
+  }
+
   if (message.author.bot) return;
   
   let foundBanned = false;
