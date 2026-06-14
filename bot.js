@@ -167,6 +167,19 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
 
   new SlashCommandBuilder()
+    .setName('roletransfer')
+    .setDescription('Move all members from one role to another.')
+    .addRoleOption(option => option.setName('from_role').setDescription('The role to remove from members').setRequired(true))
+    .addRoleOption(option => option.setName('to_role').setDescription('The role to add to those members').setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
+
+  new SlashCommandBuilder()
+    .setName('bulkroleremove')
+    .setDescription('Remove a role from every member who has it.')
+    .addRoleOption(option => option.setName('role').setDescription('The role to remove from members').setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
+
+  new SlashCommandBuilder()
     .setName('lock')
     .setDescription('Lock a channel (no sending messages).')
     .addChannelOption(option => option.setName('channel').setDescription('The channel to lock').setRequired(true))
@@ -430,7 +443,7 @@ client.on('interactionCreate', async interaction => {
   const guild = interaction.guild;
 
   // Commands that require cmds role
-  const moderationCommands = ['kick', 'ban', 'mute', 'unmute', 'warn', 'warnings', 'purge', 'nick', 'roleadd', 'roleremove', 'lock', 'unlock', 'slowmode', 'announce', 'tempban', 'clearwarnings', 'unban', 'logs', 'raidmode', 'softban', 'infractions'];
+  const moderationCommands = ['kick', 'ban', 'mute', 'unmute', 'warn', 'warnings', 'purge', 'nick', 'roleadd', 'roleremove', 'roletransfer', 'bulkroleremove', 'lock', 'unlock', 'slowmode', 'announce', 'tempban', 'clearwarnings', 'unban', 'logs', 'raidmode', 'softban', 'infractions'];
 
   if (moderationCommands.includes(commandName)) {
     const cmdsRole = guild.roles.cache.find(role => role.name.toLowerCase() === 'cmds');
@@ -716,6 +729,80 @@ client.on('interactionCreate', async interaction => {
         break;
       }
 
+      case 'roletransfer': {
+        const fromRole = interaction.options.getRole('from_role');
+        const toRole = interaction.options.getRole('to_role');
+        if (fromRole.id === toRole.id) {
+          return interaction.reply({ content: 'Please choose two different roles.', ephemeral: true });
+        }
+
+        await guild.members.fetch();
+        const membersToUpdate = guild.members.cache.filter(member => member.roles.cache.has(fromRole.id));
+        if (membersToUpdate.size === 0) {
+          return interaction.reply({ content: `No members found with the ${fromRole.name} role.`, ephemeral: true });
+        }
+
+        let successCount = 0;
+        let failedCount = 0;
+
+        for (const [, memberToUpdate] of membersToUpdate) {
+          try {
+            await memberToUpdate.roles.remove(fromRole);
+            await memberToUpdate.roles.add(toRole);
+            successCount++;
+          } catch (error) {
+            failedCount++;
+            console.error(`Failed to transfer roles for ${memberToUpdate.user.tag}:`, error);
+          }
+        }
+
+        await interaction.reply({ content: `Processed ${membersToUpdate.size} members. ${successCount} updated, ${failedCount} failed.`, ephemeral: true });
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Roletransfer Command Used**\nUser: ${interaction.user.tag}\nFrom Role: ${fromRole.name}\nTo Role: ${toRole.name}\nProcessed: ${membersToUpdate.size}\nSuccess: ${successCount}\nFailed: ${failedCount}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
+        }
+        break;
+      }
+
+      case 'bulkroleremove': {
+        const bulkRole = interaction.options.getRole('role');
+        await guild.members.fetch();
+        const membersToRemove = guild.members.cache.filter(member => member.roles.cache.has(bulkRole.id));
+        if (membersToRemove.size === 0) {
+          return interaction.reply({ content: `No members currently have the ${bulkRole.name} role.`, ephemeral: true });
+        }
+
+        let successCount = 0;
+        let failedCount = 0;
+
+        for (const [, memberToRemove] of membersToRemove) {
+          try {
+            await memberToRemove.roles.remove(bulkRole);
+            successCount++;
+          } catch (error) {
+            failedCount++;
+            console.error(`Failed to remove ${bulkRole.name} from ${memberToRemove.user.tag}:`, error);
+          }
+        }
+
+        await interaction.reply({ content: `Removed ${bulkRole.name} from ${successCount} members. ${failedCount} failures.`, ephemeral: true });
+        const botUseChannel = await getBotUseChannel(guild);
+        if (botUseChannel) {
+          const embed = new EmbedBuilder()
+            .setTitle('Moderation Action')
+            .setDescription(`**Bulkroleremove Command Used**\nUser: ${interaction.user.tag}\nRole: ${bulkRole.name}\nRemoved From: ${successCount} members\nFailed: ${failedCount}`)
+            .setColor(0xff0000)
+            .setTimestamp();
+          await botUseChannel.send({ embeds: [embed] });
+        }
+        break;
+      }
+
       case 'lock': {
         const lockChannel = interaction.options.getChannel('channel');
         await lockChannel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false });
@@ -887,7 +974,7 @@ client.on('interactionCreate', async interaction => {
           .setTitle('🔧 Racing Nation Bot - Commands')
           .setDescription('Available commands for the Racing Nation community.')
           .addFields(
-            { name: '🛡️ MODERATION (cmds role)', value: '`/kick` - Remove user\n`/ban` - Ban user\n`/unban` - Unban user\n`/tempban` - Temp ban (hours)\n`/mute` - Timeout user\n`/unmute` - Remove timeout\n`/warn` - Warn user\n`/warnings` - Check warnings\n`/clearwarnings` - Clear all warnings\n`/purge` - Delete messages\n`/nick` - Change nickname\n`/roleadd` - Add role\n`/roleremove` - Remove role\n`/lock` - Lock channel\n`/unlock` - Unlock channel\n`/slowmode` - Set slowmode\n`/announce` - Send announcement\n`/logs` - View moderation logs\n`/softban` - Softban user\n`/infractions` - View user infractions\n`/raidmode` - Toggle raid mode', inline: false },
+            { name: '🛡️ MODERATION (cmds role)', value: '`/kick` - Remove user\n`/ban` - Ban user\n`/unban` - Unban user\n`/tempban` - Temp ban (hours)\n`/mute` - Timeout user\n`/unmute` - Remove timeout\n`/warn` - Warn user\n`/warnings` - Check warnings\n`/clearwarnings` - Clear all warnings\n`/purge` - Delete messages\n`/nick` - Change nickname\n`/roleadd` - Add role\n`/roleremove` - Remove role\n`/roletransfer` - Move members from one role to another\n`/bulkroleremove` - Remove a role from all members who have it\n`/lock` - Lock channel\n`/unlock` - Unlock channel\n`/slowmode` - Set slowmode\n`/announce` - Send announcement\n`/logs` - View moderation logs\n`/softban` - Softban user\n`/infractions` - View user infractions\n`/raidmode` - Toggle raid mode', inline: false },
             { name: '🔧 UTILITY', value: '`/ping` - Check latency\n`/uptime` - Bot uptime\n`/botinfo` - Bot information\n`/serverinfo` - Server information\n`/userinfo` - User information\n`/roles` - List roles\n`/avatar` - Show avatar\n`/channelinfo` - Channel information\n`/invite` - Create invite\n`/randommember` - Random member\n`/countroles` - Role counts\n`/vote` - Create poll\n`/say` - Make bot speak\n`/serverbanner` - Server banner', inline: false }
           )
           .setFooter({ text: 'This command can only be used once per server.' })
