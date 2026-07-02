@@ -1,0 +1,91 @@
+const { EmbedBuilder } = require('discord.js');
+const db = require('../services/database');
+const { triggerAutoMod } = require('../services/automod');
+const { memberHasCmds, getCmdsRole } = require('../utils/permissionUtils');
+
+const spamHistory = new Map();
+const protectedRoleNames = ['community director', 'owner', 'developer'];
+const bannedContent = [/nig/i, /fagg/i, /sand/i, /porn/i, /xxx/i, /nud/i, /horny/i];
+
+function isProtectedMention(message) {
+  if (!message.mentions.roles.size) return false;
+  return message.mentions.roles.some(role => protectedRoleNames.includes(role.name.toLowerCase()));
+}
+
+module.exports = {
+  name: 'messageCreate',
+  async execute(message) {
+    if (!message.guild || message.author.bot) return;
+
+    const member = message.member;
+    const guildSettings = await db.getGuildSettings(message.guild.id);
+    const isStaff = memberHasCmds(member);
+
+    if (message.channel.name === 'verify') {
+      if (message.author.id !== message.client.user.id) {
+        try {
+          await message.delete();
+        } catch (error) {
+          console.error('Failed to delete verify message:', error);
+        }
+      }
+      return;
+    }
+
+    if (message.channel.name === 'general' && message.author.id === '365975655037009931') {
+      try {
+        await message.delete();
+      } catch (error) {
+        console.error('Failed to delete Bloxlink message:', error);
+      }
+      return;
+    }
+
+    if (message.channel.name === 'partners' && !message.author.bot) {
+      try {
+        await message.delete();
+      } catch (error) {
+        console.error('Failed to delete partners message:', error);
+      }
+      return;
+    }
+
+    if (guildSettings.raidMode && !isStaff) {
+      await triggerAutoMod(message, 'Raid mode active');
+      return;
+    }
+
+    if (!isStaff && isProtectedMention(message)) {
+      await triggerAutoMod(message, 'Protected role mention');
+      return;
+    }
+
+    if (!guildSettings.automodEnabled || isStaff) return;
+
+    const content = message.content || '';
+    const now = Date.now();
+    const key = `${message.guild.id}:${message.author.id}`;
+    const history = (spamHistory.get(key) || []).filter(timestamp => now - timestamp < guildSettings.spamWindowMs);
+    history.push(now);
+    spamHistory.set(key, history);
+
+    if (history.length >= guildSettings.spamThreshold) {
+      await triggerAutoMod(message, 'Spamming repeated messages');
+      return;
+    }
+
+    if (guildSettings.blockInvites && /(discord\.gg|discord\.com\/invite|discordapp\.com\/invite)/i.test(content)) {
+      await triggerAutoMod(message, 'Invite link detected');
+      return;
+    }
+
+    if (message.mentions.users.size >= guildSettings.maxMentions) {
+      await triggerAutoMod(message, 'Mention spam');
+      return;
+    }
+
+    if (bannedContent.some(regex => regex.test(content))) {
+      await triggerAutoMod(message, 'Prohibited content detected');
+    }
+  }
+};
