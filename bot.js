@@ -1,6 +1,89 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+const DATA_DIR = path.join(__dirname, 'data');
+const DATABASE_PATH = path.join(DATA_DIR, 'bot-data.json');
+
+function loadDatabase() {
+  if (!fs.existsSync(DATABASE_PATH)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    const initialData = { guilds: {}, logs: [] };
+    fs.writeFileSync(DATABASE_PATH, JSON.stringify(initialData, null, 2));
+    return initialData;
+  }
+
+  try {
+    return JSON.parse(fs.readFileSync(DATABASE_PATH, 'utf8'));
+  } catch (error) {
+    console.error('Failed to read database, resetting it.', error);
+    const freshData = { guilds: {}, logs: [] };
+    fs.writeFileSync(DATABASE_PATH, JSON.stringify(freshData, null, 2));
+    return freshData;
+  }
+}
+
+const db = loadDatabase();
+
+function saveDatabase() {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(DATABASE_PATH, JSON.stringify(db, null, 2));
+}
+
+function getGuildData(guildId) {
+  if (!db.guilds[guildId]) {
+    db.guilds[guildId] = {
+      warnings: {},
+      settings: {
+        autoMod: {
+          enabled: true,
+          spamThreshold: 5,
+          spamWindowMs: 8000,
+          maxMentions: 5,
+          blockInvites: true,
+          allowedChannels: ['bot-use', 'mod-logs', 'moderation', 'logs']
+        }
+      },
+      raidMode: false
+    };
+  }
+  return db.guilds[guildId];
+}
+
+function getWarningKey(guildId, userId) {
+  return `${guildId}:${userId}`;
+}
+
+function getUserWarnings(guildId, userId) {
+  const guildData = getGuildData(guildId);
+  if (!guildData.warnings[userId]) {
+    guildData.warnings[userId] = [];
+  }
+  return guildData.warnings[userId];
+}
+
+function saveUserWarnings(guildId, userId, warningsList) {
+  const guildData = getGuildData(guildId);
+  guildData.warnings[userId] = warningsList;
+  saveDatabase();
+}
+
+function getAutoModSettings(guildId) {
+  const guildData = getGuildData(guildId);
+  if (!guildData.settings.autoMod) {
+    guildData.settings.autoMod = {
+      enabled: true,
+      spamThreshold: 5,
+      spamWindowMs: 8000,
+      maxMentions: 5,
+      blockInvites: true,
+      allowedChannels: ['bot-use', 'mod-logs', 'moderation', 'logs']
+    };
+  }
+  return guildData.settings.autoMod;
+}
 
 // Validate environment variables
 const TOKEN = process.env.DISCORD_TOKEN;
@@ -59,6 +142,17 @@ const moderationLogs = [];
 let ticketCounter = 0;
 const raidMode = new Set();
 const helpCommandUsed = new Set();
+const autoModMessageHistory = new Map();
+const autoModCooldowns = new Map();
+
+for (const [guildId, guildData] of Object.entries(db.guilds || {})) {
+  if (guildData?.raidMode) {
+    raidMode.add(guildId);
+  }
+  for (const [userId, userWarnings] of Object.entries(guildData?.warnings || {})) {
+    warnings.set(getWarningKey(guildId, userId), userWarnings);
+  }
+}
 
 // Utility function to get bot-use channel
 async function getBotUseChannel(guild) {
@@ -97,6 +191,70 @@ function logModerationAction(action) {
   });
 }
 
+function isStaffMember(member) {
+  if (!member) return false;
+  if (member.permissions?.has(PermissionFlagsBits.Administrator)) return true;
+  if (member.permissions?.has(PermissionFlagsBits.ModerateMembers)) return true;
+  const roleNames = member.roles.cache.map(role => role.name.toLowerCase());
+  return roleNames.some(roleName => ['cmds', 'mod', 'staff', 'moderator', 'admin', 'owner'].includes(roleName));
+}
+
+async function triggerAutoMod(message, reason) {
+  const { guild, author, channel } = message;
+  const cooldownKey = `${guild.id}:${author.id}:${reason}`;
+  const now = Date.now();
+  const lastTrigger = autoModCooldowns.get(cooldownKey) || 0;
+  if (now - lastTrigger < 60000) {
+    return;
+  }
+  autoModCooldowns.set(cooldownKey, now);
+
+  try {
+    await message.delete();
+  } catch (error) {
+    console.error('Could not auto-delete message:', error);
+  }
+
+  const userWarnings = getUserWarnings(guild.id, author.id);
+  userWarnings.push({
+    reason,
+    date: new Date().toISOString(),
+    source: 'auto-mod'
+  });
+  saveUserWarnings(guild.id, author.id, userWarnings);
+
+  await sendModerationDM(author, 'Auto-moderation notice', reason, 'Please keep your messages respectful.');
+  const botUseChannel = await getBotUseChannel(guild);
+  if (botUseChannel) {
+    const embed = new EmbedBuilder()
+      .setTitle('⚠️ Auto-moderation Triggered')
+      .setDescription(`User: ${author.tag}\nChannel: ${channel.name}\nReason: ${reason}`)
+      .setColor(0xffaa00)
+      .setTimestamp();
+    await botUseChannel.send({ embeds: [embed] }).catch(() => null);
+  }
+}
+
+async function applyRaidMode(guild, enabled) {
+  const textChannels = guild.channels.cache.filter(ch => ch.isTextBased());
+  for (const [, channel] of textChannels) {
+    try {
+      await channel.permissionOverwrites.edit(guild.roles.everyone, enabled ? { SendMessages: false } : { SendMessages: null });
+    } catch (error) {
+      console.error(`Could not update permissions for ${channel.name}:`, error);
+    }
+  }
+
+  if (enabled) {
+    raidMode.add(guild.id);
+  } else {
+    raidMode.delete(guild.id);
+  }
+
+  const guildData = getGuildData(guild.id);
+  guildData.raidMode = enabled;
+  saveDatabase();
+}
 
 const commands = [
   // Moderation Commands
@@ -321,9 +479,12 @@ client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
   console.log(`Bot is in ${client.guilds.cache.size} servers`);
 
-  // Initialize ticket counter for each guild
+  // Initialize ticket counter and persisted raid mode for each guild
   for (const [, guild] of client.guilds.cache) {
     initializeTicketCounter(guild);
+    if (raidMode.has(guild.id)) {
+      await applyRaidMode(guild, true);
+    }
   }
   console.log(`Initialized ticket counter to ${ticketCounter}`);
 
@@ -346,11 +507,10 @@ client.once('ready', async () => {
   }
 });
 
-// Message content filter
+// Message content filter and auto-moderation
 client.on('messageCreate', async message => {
   if (!message.guild || !client.user) return;
-  
-  // Auto-delete every message in the `verify` channel except this bot's own messages.
+
   if (message.channel && message.channel.name === 'verify') {
     if (message.author.id === client.user.id) {
       return;
@@ -364,7 +524,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // Auto-delete Bloxlink messages in general channel
   if (message.channel.name === 'general' && message.author.id === '365975655037009931') {
     try {
       await message.delete();
@@ -375,40 +534,59 @@ client.on('messageCreate', async message => {
   }
 
   if (message.author.bot) return;
-  
-  let foundBanned = false;
-  let bannedType = '';
-  
-  for (const regex of bannedContent) {
-    if (regex.test(message.content)) {
-      foundBanned = true;
-      bannedType = message.content.match(/nig|fagg|sand|porn|xxx|nud|horny/) ? 'Hate Speech/Slur' : 'NSFW Content';
-      break;
-    }
-  }
-  
-  if (foundBanned) {
+
+  if (raidMode.has(message.guild.id) && !isStaffMember(message.member) && message.author.id !== client.user.id) {
     try {
       await message.delete();
-        const modsChannel = message.guild.channels.cache.find(c => c.name === 'bot-use');
-      if (modsChannel) {
-        const reportEmbed = new EmbedBuilder()
-          .setTitle('⚠️ Content Filter Alert')
-          .addFields(
-            { name: 'Type', value: bannedType, inline: true },
-            { name: 'User', value: message.author.tag, inline: true },
-            { name: 'Channel', value: message.channel.name, inline: true },
-            { name: 'Message', value: message.content.substring(0, 100), inline: false }
-          )
-          .setColor(0xff0000);
-        await modsChannel.send({ embeds: [reportEmbed] });
-      }
     } catch (err) {
-      console.error(`Could not delete message: ${err}`);
+      console.error(`Could not delete message during raid mode: ${err}`);
+    }
+    await triggerAutoMod(message, 'Raid mode active');
+    return;
+  }
+
+  const protectedRoleNames = ['community director', 'owner', 'developer'];
+  const cmdsRole = message.guild.roles.cache.find(role => role.name.toLowerCase() === 'cmds');
+  const mentionedProtectedRoles = message.mentions.roles.filter(role => protectedRoleNames.includes(role.name.toLowerCase()));
+  if (mentionedProtectedRoles.size > 0 && (!cmdsRole || !message.member.roles.cache.has(cmdsRole.id))) {
+    await triggerAutoMod(message, 'Mentioned protected role');
+    return;
+  }
+
+  const settings = getAutoModSettings(message.guild.id);
+  if (!settings.enabled) return;
+  if (settings.allowedChannels.includes(message.channel.name.toLowerCase())) return;
+  if (isStaffMember(message.member)) return;
+
+  const content = message.content.toLowerCase();
+  const now = Date.now();
+  const spamKey = `${message.guild.id}:${message.author.id}`;
+  const recentMessages = (autoModMessageHistory.get(spamKey) || []).filter(ts => now - ts < settings.spamWindowMs);
+  recentMessages.push(now);
+  autoModMessageHistory.set(spamKey, recentMessages);
+
+  if (recentMessages.length >= settings.spamThreshold) {
+    await triggerAutoMod(message, 'Spamming / repeated messages');
+    return;
+  }
+
+  if (settings.maxMentions && message.mentions.users.size >= settings.maxMentions) {
+    await triggerAutoMod(message, `Mention spam (${message.mentions.users.size} mentions)`);
+    return;
+  }
+
+  if (settings.blockInvites && /(discord\.gg|discord\.com\/invite|discordapp\.com\/invite)/i.test(content)) {
+    await triggerAutoMod(message, 'Invite link posted');
+    return;
+  }
+
+  for (const regex of bannedContent) {
+    if (regex.test(message.content)) {
+      await triggerAutoMod(message, 'Matched banned content filter');
+      return;
     }
   }
 
-  // Auto-delete non-command messages in lap-times channel
   if (message.channel.name === 'lap-times' && !message.content.startsWith('/')) {
     try {
       await message.delete();
@@ -597,9 +775,10 @@ client.on('interactionCreate', async interaction => {
       case 'warn': {
         const warnUser = interaction.options.getUser('user');
         const warnReason = interaction.options.getString('reason') || 'No reason provided';
-        const userWarnings = warnings.get(warnUser.id) || [];
-        userWarnings.push({ reason: warnReason, date: new Date() });
-        warnings.set(warnUser.id, userWarnings);
+        const userWarnings = getUserWarnings(guild.id, warnUser.id);
+        userWarnings.push({ reason: warnReason, date: new Date().toISOString(), source: 'command' });
+        saveUserWarnings(guild.id, warnUser.id, userWarnings);
+        warnings.set(getWarningKey(guild.id, warnUser.id), userWarnings);
         const warnCount = userWarnings.length;
         
         await sendModerationDM(warnUser, 'You have been warned', warnReason);
@@ -641,10 +820,10 @@ client.on('interactionCreate', async interaction => {
 
       case 'warnings': {
         const warningsUser = interaction.options.getUser('user');
-        const userWarns = warnings.get(warningsUser.id) || [];
+        const userWarns = getUserWarnings(guild.id, warningsUser.id);
         const embed = new EmbedBuilder()
           .setTitle(`Warnings for ${warningsUser.tag}`)
-          .setDescription(userWarns.length ? userWarns.map((w, i) => `${i+1}. ${w.reason} (${w.date.toDateString()})`).join('\n') : 'No warnings.')
+          .setDescription(userWarns.length ? userWarns.map((w, i) => `${i+1}. ${w.reason} (${new Date(w.date).toDateString()})`).join('\n') : 'No warnings.')
           .setColor(0xff0000);
         await interaction.reply({ embeds: [embed], ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
@@ -893,8 +1072,9 @@ client.on('interactionCreate', async interaction => {
 
       case 'clearwarnings': {
         const clearUser = interaction.options.getUser('user');
-        const clearedCount = warnings.get(clearUser.id)?.length || 0;
-        warnings.delete(clearUser.id);
+        const clearedCount = getUserWarnings(guild.id, clearUser.id).length;
+        warnings.delete(getWarningKey(guild.id, clearUser.id));
+        saveUserWarnings(guild.id, clearUser.id, []);
         logModerationAction({ action: 'clearwarnings', executor: interaction.user.tag, target: clearUser.tag, clearedCount: clearedCount });
         await interaction.reply({ content: `Cleared all ${clearedCount} warnings for ${clearUser.tag}.`, ephemeral: true });
         const botUseChannel = await getBotUseChannel(guild);
@@ -987,16 +1167,7 @@ client.on('interactionCreate', async interaction => {
       case 'raidmode':
         const isRaidMode = raidMode.has(guild.id);
         if (isRaidMode) {
-          raidMode.delete(guild.id);
-          // Unlock all channels
-          const channels = guild.channels.cache.filter(ch => ch.isTextBased());
-          for (const [, channel] of channels) {
-            try {
-              await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: null });
-            } catch (err) {
-              console.error(`Could not unlock ${channel.name}`);
-            }
-          }
+          await applyRaidMode(guild, false);
           await interaction.reply({ content: '🟢 **Raid mode DISABLED** - All channels unlocked.', ephemeral: false });
           logModerationAction({ action: 'raidmode-disable', executor: interaction.user.tag, target: 'Guild', reason: 'Raid mode disabled' });
           const botUseChannel = await getBotUseChannel(guild);
@@ -1009,16 +1180,7 @@ client.on('interactionCreate', async interaction => {
             await botUseChannel.send({ embeds: [embed] });
           }
         } else {
-          raidMode.add(guild.id);
-          // Lock all channels
-          const channels = guild.channels.cache.filter(ch => ch.isTextBased());
-          for (const [, channel] of channels) {
-            try {
-              await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false });
-            } catch (err) {
-              console.error(`Could not lock ${channel.name}`);
-            }
-          }
+          await applyRaidMode(guild, true);
           await interaction.reply({ content: '🔴 **RAID MODE ACTIVATED** - All channels locked. Use `/raidmode` to disable.', ephemeral: false });
           logModerationAction({ action: 'raidmode-enable', executor: interaction.user.tag, target: 'Guild', reason: 'Raid mode activated' });
           const botUseChannel = await getBotUseChannel(guild);
