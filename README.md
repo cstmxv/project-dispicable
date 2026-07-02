@@ -1,66 +1,77 @@
-# Racing Nation Bot
+# MUSTARD Bot
 
-A Discord bot for the Racing Nation community with moderation and utility commands.
+MUSTARD is the new modular Discord bot for your community, built for advanced moderation, ticketing, and community utilities.
 
-## Features
+## What’s included
 
-- **Moderation Commands**: Kick, ban, mute, warn, purge, role management, channel controls
-- **Utility Commands**: Ping, uptime, server info, user info, avatar, invite, vote, etc.
-- **Role-based Access**: Commands require 'cmds' role
+- **Persistent moderation** with warnings stored in SQLite
+- **Auto-moderation** for spam, invite links, mention abuse, and prohibited content
+- **Raid mode** with global channel lockdown support
+- **Role-based protection** for high-value role mentions
+- **Legacy compatibility**: old `bot.js` still works as `npm run legacy`
+- **Modular command/event structure** for easy expansion
 
-## Setup
+## Installation
 
-1. **Create a Discord Bot Application**:
-   - Go to https://discord.com/developers/applications
-   - Create a new application
-   - Go to the "Bot" section and create a bot
-   - Copy the bot token
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-2. **Get Server and Bot IDs**:
-   - Enable Developer Mode in Discord (User Settings → Advanced → Developer Mode)
-   - Right-click your server → Copy ID (this is GUILD_ID)
-   - Right-click your bot → Copy ID (this is CLIENT_ID)
+2. Create a `.env` file with:
+   ```env
+   DISCORD_TOKEN=your_bot_token
+   GUILD_ID=your_guild_id
+   CLIENT_ID=your_bot_client_id
+   ```
 
-3. **Invite the Bot to Your Server**:
-   - Go to OAuth2 → URL Generator
-   - Select scopes: `bot` and `applications.commands`
-   - Select permissions: Send Messages, Use Slash Commands, Kick Members, Ban Members, Manage Roles, Manage Channels, etc.
-   - Use the generated URL to invite the bot
+3. Start the new modular bot:
+   ```bash
+   npm start
+   ```
 
-4. **Configure the Bot**:
-   - Install dependencies: `npm install`
-   - Edit `.env` file with your actual credentials:
-     ```
-     DISCORD_TOKEN=your_actual_bot_token
-     GUILD_ID=your_server_id
-     CLIENT_ID=your_bot_client_id
-     ```
-   - Create a role named 'cmds' in your server
-   - Create a channel named 'bot-use' for moderation logs
-   - Run the bot: `npm start`
+4. To run the original legacy bot instead:
+   ```bash
+   npm run legacy
+   ```
 
-## Commands
+## Command categories
 
-The bot registers 35 slash commands automatically on startup.
-
-### Moderation (requires 'cmds' role)
-- `/kick`, `/ban`, `/mute`, `/unmute`, `/warn`, `/warnings`, `/clearwarnings`
-- `/purge`, `/nick`, `/roleadd`, `/roleremove`
-- `/lock`, `/unlock`, `/slowmode`, `/announce`
-- `/tempban`, `/unban`, `/softban`
+### Moderation
+- `/warn` — warn a user and store the warning
+- `/warnings` — view a user’s warnings
+- `/clearwarnings` — clear all warnings for a user
+- `/raidmode` — toggle raid mode on/off
+- `/kick`, `/ban`, `/mute`, `/unmute`, `/purge`, `/nick`
+- `/roleadd`, `/roleremove`, `/lock`, `/unlock`, `/slowmode`, `/announce`
 
 ### Utility
-- `/ping`, `/uptime`, `/botinfo`, `/serverinfo`
-- `/userinfo`, `/roles`, `/avatar`, `/channelinfo`
-- `/invite`, `/randommember`, `/countroles`, `/vote`, `/say`, `/serverbanner`
-- `/calculator`, `/remindme`, `/poll`, `/weather`, `/translate`, `/qr`, `/shorten`, `/define`
-- `/purge`, `/nick`, `/roleadd`, `/roleremove`
-- `/lock`, `/unlock`, `/slowmode`, `/announce`
-- `/tempban`, `/unban`, `/softban`
+- `/ping` — check bot latency
+- `/uptime` — see bot runtime
+- `/botinfo` — bot details
+- `/serverinfo` — server summary
+- `/userinfo` — info for a user
+- `/roles` — role list
+- `/avatar` — show a user avatar
+- `/channelinfo` — channel details
+- `/invite` — create a temporary invite
+- `/randommember` — select a random member
+- `/countroles` — count members per role
+- `/say` — relay a message through the bot
+- `/serverbanner` — show the server banner
 
-### Utility
-- `/ping`, `/uptime`, `/botinfo`, `/serverinfo`
-- `/userinfo`, `/roles`, `/avatar`, `/channelinfo`
-- `/invite`, `/randommember`, `/countroles`, `/vote`, `/say`, `/serverbanner`
-- `/calculator`, `/remindme`, `/poll`, `/weather`, `/translate`, `/qr`, `/shorten`, `/define`
->>>>>>> 0d36ade (Fix bot deployment issues: add missing intents, improve bot-use channel logging, update README with setup instructions)
+## Files and structure
+
+- `bot.js` — legacy bot entrypoint
+- `src/index.js` — new modular bot entrypoint
+- `src/commands/` — slash command implementations
+- `src/events/` — event handlers
+- `src/services/` — database, automod, and moderation services
+- `src/utils/` — shared helper utilities
+
+## Notes
+
+- Create a role called `cmds` for staff command access
+- Create a `bot-use` or `mod-logs` channel for moderation logs
+- The new build uses SQLite and creates `src/data/bot.sqlite`
+- The old bot remains available in case you need it
