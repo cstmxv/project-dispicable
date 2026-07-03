@@ -41,8 +41,48 @@ async function logModerationAction(guild, action, logService, details) {
   await botUseChannel.send({ embeds: [embed] }).catch(() => null);
 }
 
+async function checkAndEscalateWarnings(guild, targetId, warningCount, logService, executor) {
+  // Simple escalation policy: 3 -> mute, 5 -> kick, 7 -> ban
+  try {
+    const member = await guild.members.fetch(targetId).catch(() => null);
+    if (!member) return;
+
+    if (warningCount >= 7) {
+      await member.ban({ days: 1, reason: 'Reached warning threshold for ban' }).catch(() => null);
+      await logService.logAction({ guildId: guild.id, action: 'ban', targetId, targetTag: member.user.tag, executorId: executor?.id, executorTag: executor?.tag, reason: 'Auto-escalation: ban', metadata: { warningCount } });
+      return;
+    }
+
+    if (warningCount >= 5) {
+      await member.kick('Auto-escalation: reached kick threshold').catch(() => null);
+      await logService.logAction({ guildId: guild.id, action: 'kick', targetId, targetTag: member.user.tag, executorId: executor?.id, executorTag: executor?.tag, reason: 'Auto-escalation: kick', metadata: { warningCount } });
+      return;
+    }
+
+    if (warningCount >= 3) {
+      // Apply Muted role
+      let muteRole = guild.roles.cache.find(r => r.name.toLowerCase() === 'muted');
+      if (!muteRole) {
+        try {
+          muteRole = await guild.roles.create({ name: 'Muted', reason: 'Create muted role for auto-moderation', permissions: [] });
+        } catch (e) {
+          // ignore role creation failures in constrained environments
+        }
+      }
+      if (muteRole) {
+        await member.roles.add(muteRole).catch(() => null);
+        await logService.logAction({ guildId: guild.id, action: 'mute', targetId, targetTag: member.user.tag, executorId: executor?.id, executorTag: executor?.tag, reason: 'Auto-escalation: mute', metadata: { warningCount } });
+      }
+    }
+  } catch (error) {
+    console.error('Escalation failed:', error);
+  }
+}
+
 module.exports = {
   getBotUseChannel,
   sendModerationDM,
   logModerationAction
+  , checkAndEscalateWarnings
 };
+

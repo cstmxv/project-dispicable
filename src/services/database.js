@@ -142,5 +142,9 @@ module.exports = {
   addWarning,
   getWarnings,
   clearWarnings,
-  logAction
+  logAction,
+  get,
+  all
 };
+
+

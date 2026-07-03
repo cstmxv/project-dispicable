@@ -1,6 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 const db = require('../services/database');
 const { memberHasCmds } = require('../utils/permissionUtils');
+const { checkAndEscalateWarnings } = require('../services/moderation');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -28,6 +29,10 @@ module.exports = {
       reason,
       metadata: { warningCount: warnings.length }
     });
+
+    // Check escalation
+    const warningsAfter = await db.getWarnings(interaction.guild.id, target.id);
+    await checkAndEscalateWarnings(interaction.guild, target.id, warningsAfter.length, db, interaction.user);
 
     try {
       await target.send(`You have been warned in **${interaction.guild.name}** for: ${reason}`);
