@@ -659,55 +659,55 @@ client.on('interactionCreate', async interaction => {
           console.log(`Warning: Could not find bot-use channel in guild ${guild.name}`);
         }
         break;
-      
-        case 'banid': {
-          const userId = interaction.options.getString('user_id');
-          const banReason = interaction.options.getString('reason') || 'No reason provided';
+      }
 
-          // Permission check
-          if (!guild.members.me.permissions.has('BanMembers')) {
-            return interaction.reply({ content: '❌ I don\'t have permission to ban members.', ephemeral: true });
-          }
+      case 'banid': {
+        const userId = interaction.options.getString('user_id');
+        const banReason = interaction.options.getString('reason') || 'No reason provided';
 
-          if (userId === interaction.user.id) {
-            return interaction.reply({ content: '❌ You cannot ban yourself.', ephemeral: true });
-          }
-
-          if (userId === client.user.id) {
-            return interaction.reply({ content: '❌ You cannot ban me.', ephemeral: true });
-          }
-
-          if (userId === guild.ownerId) {
-            return interaction.reply({ content: '❌ You cannot ban the server owner.', ephemeral: true });
-          }
-
-          try {
-            await guild.members.ban(userId, { reason: banReason });
-            // Try to DM the user if resolvable
-            try {
-              const fetched = await client.users.fetch(userId).catch(() => null);
-              if (fetched) await sendModerationDM(fetched, 'You have been banned', banReason);
-              logModerationAction({ action: 'ban', executor: interaction.user.tag, target: fetched ? fetched.tag : userId, reason: banReason });
-            } catch (err) {
-              logModerationAction({ action: 'ban', executor: interaction.user.tag, target: userId, reason: banReason });
-            }
-
-            await interaction.reply({ content: `✅ Banned user ID ${userId}. DM attempted.`, ephemeral: true });
-            const botUseChannel = await getBotUseChannel(guild);
-            if (botUseChannel) {
-              const embed = new EmbedBuilder()
-                .setTitle('Moderation Action')
-                .setDescription(`**Ban by ID Used**\nUser: ${interaction.user.tag}\nTarget ID: ${userId}\nReason: ${banReason}`)
-                .setColor(0xff0000)
-                .setTimestamp();
-              await botUseChannel.send({ embeds: [embed] });
-            }
-          } catch (error) {
-            console.error('BanID error:', error);
-            await interaction.reply({ content: `❌ Failed to ban ID ${userId}: ${error.message}`, ephemeral: true });
-          }
-          break;
+        // Permission check
+        if (!guild.members.me.permissions.has('BanMembers')) {
+          return interaction.reply({ content: '❌ I don\'t have permission to ban members.', ephemeral: true });
         }
+
+        if (userId === interaction.user.id) {
+          return interaction.reply({ content: '❌ You cannot ban yourself.', ephemeral: true });
+        }
+
+        if (userId === client.user.id) {
+          return interaction.reply({ content: '❌ You cannot ban me.', ephemeral: true });
+        }
+
+        if (userId === guild.ownerId) {
+          return interaction.reply({ content: '❌ You cannot ban the server owner.', ephemeral: true });
+        }
+
+        try {
+          await guild.members.ban(userId, { reason: banReason });
+          // Try to DM the user if resolvable
+          try {
+            const fetched = await client.users.fetch(userId).catch(() => null);
+            if (fetched) await sendModerationDM(fetched, 'You have been banned', banReason);
+            logModerationAction({ action: 'ban', executor: interaction.user.tag, target: fetched ? fetched.tag : userId, reason: banReason });
+          } catch (err) {
+            logModerationAction({ action: 'ban', executor: interaction.user.tag, target: userId, reason: banReason });
+          }
+
+          await interaction.reply({ content: `✅ Banned user ID ${userId}. DM attempted.`, ephemeral: true });
+          const botUseChannel = await getBotUseChannel(guild);
+          if (botUseChannel) {
+            const embed = new EmbedBuilder()
+              .setTitle('Moderation Action')
+              .setDescription(`**Ban by ID Used**\nUser: ${interaction.user.tag}\nTarget ID: ${userId}\nReason: ${banReason}`)
+              .setColor(0xff0000)
+              .setTimestamp();
+            await botUseChannel.send({ embeds: [embed] });
+          }
+        } catch (error) {
+          console.error('BanID error:', error);
+          await interaction.reply({ content: `❌ Failed to ban ID ${userId}: ${error.message}`, ephemeral: true });
+        }
+        break;
       }
 
       case 'ban': {
